@@ -227,12 +227,15 @@ void br_stp_change_bridge_id(struct net_bridge *br, const unsigned char *addr)
 
 /* should be aligned on 2 bytes for ether_addr_equal() */
 static const unsigned short br_mac_zero_aligned[ETH_ALEN >> 1];
+static const unsigned short br_random_aligned[ETH_ALEN >> 1];
 
 /* called under bridge lock */
 bool br_stp_recalculate_bridge_id(struct net_bridge *br)
 {
 	const unsigned char *br_mac_zero =
 			(const unsigned char *)br_mac_zero_aligned;
+	const unsigned char *br_mac_random =
+			(const unsigned char *)br_random_aligned;
 	const unsigned char *addr = br_mac_zero;
 	struct net_bridge_port *p;
 
@@ -249,6 +252,11 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
 
 	if (ether_addr_equal(br->bridge_id.addr, addr))
 		return false;	/* no change */
+
+	if (ether_addr_equal(addr, br_mac_zero)) {
+		eth_random_addr(br_random_aligned);
+		addr = br_random_aligned;
+	}
 
 	br_stp_change_bridge_id(br, addr);
 	return true;
