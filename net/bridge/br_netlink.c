@@ -587,6 +587,7 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
 	struct net_bridge_port *p;
 	struct nlattr *tb[IFLA_BRPORT_MAX + 1];
 	int err = 0;
+	bool changed;
 
 	protinfo = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_PROTINFO);
 	afspec = nlmsg_find_attr(nlh, sizeof(struct ifinfomsg), IFLA_AF_SPEC);
@@ -609,7 +610,12 @@ int br_setlink(struct net_device *dev, struct nlmsghdr *nlh, u16 flags)
 
 			spin_lock_bh(&p->br->lock);
 			err = br_setport(p, tb);
+			changed = br_stp_recalculate_bridge_id(p->br);
 			spin_unlock_bh(&p->br->lock);
+			if (changed)
+				call_netdevice_notifiers(NETDEV_CHANGEADDR,
+							 p->br->dev);
+			netdev_update_features(p->br->dev);
 		} else {
 			/* Binary compatibility with old RSTP */
 			if (nla_len(protinfo) < sizeof(u8))
