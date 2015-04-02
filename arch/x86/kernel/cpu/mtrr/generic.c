@@ -382,7 +382,7 @@ static void __init print_mtrr_state(void)
 }
 
 /* Grab all of the MTRR state for this CPU into *state */
-void __init get_mtrr_state(void)
+bool __init get_mtrr_state(void)
 {
 	struct mtrr_var_range *vrs;
 	unsigned long flags;
@@ -426,6 +426,8 @@ void __init get_mtrr_state(void)
 
 	post_set();
 	local_irq_restore(flags);
+
+	return !!(mtrr_state.enabled & MTRR_STATE_MTRR_ENABLED);
 }
 
 /* Some BIOS's are messed up and don't set all MTRRs the same! */
