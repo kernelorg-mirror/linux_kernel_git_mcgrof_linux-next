@@ -85,6 +85,25 @@ config FW_LOADER
 	  require userspace firmware loading support, but a module built
 	  out-of-tree does.
 
+config SYSTEM_DATA_SIG
+	bool "System data signature verification"
+	select FW_LOADER
+	select SYSTEM_DATA_VERIFICATION
+	help
+	  Check system data files for valid signatures upon load: if the system
+	  data file was called foo.bin, a respective foo.bin.p7s is expected to
+	  be present as the signature file. For more information see
+	  Documentation/firmware_class/system_data.txt
+
+config SYSTEM_DATA_SIG_FORCE
+	bool "Require all system data files to be validly signed"
+	depends on SYSTEM_DATA_SIG
+	help
+	  Reject unsigned files or signed files for which we don't have a
+	  key.  Without this, you enable permissive mode and you'll only get
+	  a record on the kernel ring buffer of system data files loaded
+	  without a proper signature.
+
 config FIRMWARE_IN_KERNEL
 	bool "Include in-kernel firmware blobs in kernel binary"
 	depends on FW_LOADER

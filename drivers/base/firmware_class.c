@@ -30,6 +30,7 @@
 #include <linux/syscore_ops.h>
 #include <linux/reboot.h>
 #include <linux/security.h>
+#include <keys/system_keyring.h>
 
 #include <generated/utsrelease.h>
 
@@ -44,6 +45,11 @@ static const struct sysdata_file_sync_reqs dfl_sync_reqs = {
 	.module = THIS_MODULE,
 	.gfp = GFP_KERNEL,
 };
+
+static bool sysdata_sig_enforce = IS_ENABLED(CONFIG_SYSTEM_DATA_SIG_FORCE);
+#ifndef CONFIG_SYSTEM_DATA_SIG_FORCE
+module_param(sysdata_sig_enforce, bool_enable_only, 0644);
+#endif /* !CONFIG_SYSTEM_DATA_SIG_FORCE */
 
 /* Builtin firmware support */
 
@@ -149,6 +155,9 @@ struct firmware_buf {
 	unsigned long status;
 	void *data;
 	size_t size;
+	void *data_sig;
+	size_t size_sig;
+	bool sig_ok;
 #ifdef CONFIG_FW_LOADER_USER_HELPER
 	bool is_paged_buf;
 	bool need_uevent;
@@ -399,6 +408,105 @@ out:
 	return rc;
 }
 
+#ifdef CONFIG_SYSTEM_DATA_SIG
+static int get_filesystem_sysdata_sig(struct device *device,
+				      struct firmware_buf *buf,
+				      char *path, char *path_sig,
+				      const char *sig_suffix)
+{
+	int rc;
+
+	memcpy(path_sig, sig_suffix, strlen(sig_suffix) + 1);
+
+	rc = fw_read_file(path, &buf->data_sig, &buf->size_sig);
+	if (rc == -ENOENT && !sysdata_sig_enforce) {
+		dev_info(device, "Could not find signature %s, but this is OK\n",
+			 path);
+		rc = 0;
+	}
+	if (rc < 0) {
+		dev_warn(device, "Firmware signature unreadable (%d): '%s'\n",
+			 rc, path);
+		rc = -EKEYREJECTED;
+	}
+
+	return rc;
+}
+#else
+static int get_filesystem_sysdata_sig(struct device *device,
+				      struct firmware_buf *buf,
+				      char *path, char *path_sig,
+				      const char *sig_suffix)
+{
+	return 0;
+}
+#endif /* CONFIG_SYSTEM_DATA_SIG */
+
+/* sig_suffix must be null terminated */
+static int get_filesystem_sysdata_and_sig(struct device *device,
+				          struct firmware_buf *buf,
+				          char *path, char *path_sig,
+				          const char *sig_suffix)
+{
+	int rc;
+
+	rc = fw_read_file(path, &buf->data, &buf->size);
+	if (rc != 0)
+		goto out;
+	rc = get_filesystem_sysdata_sig(device, buf, path, path_sig,
+					sig_suffix);
+out:
+	return rc;
+}
+
+/*
+ * Read a system data blob and its signature.
+ */
+static int get_filesystem_sysdata(struct device *device,
+				  struct firmware_buf *buf)
+{
+	static const char pkcs7_suffix[] = ".p7s";
+	int i, len;
+	int rc = -ENOENT;
+	char *path = NULL;
+
+	path = __getname();
+	if (!path)
+		return -ENOMEM;
+
+	/*
+	 * Try each possible system dat blob in turn till one doesn't produce
+	 * ENOENT.
+	 */
+	for (i = 0; i < ARRAY_SIZE(fw_path); i++) {
+		/* skip the unset customized path */
+		if (!fw_path[i][0])
+			continue;
+
+		len = snprintf(path, PATH_MAX - sizeof(pkcs7_suffix) - 1,
+			       "%s/%s", fw_path[i], buf->fw_id);
+		if (len >= PATH_MAX - sizeof(pkcs7_suffix) - 1) {
+			rc = -ENAMETOOLONG;
+			break;
+		}
+		rc = get_filesystem_sysdata_and_sig(device, buf, path,
+						    path + len, pkcs7_suffix);
+		if (!rc) {
+			fw_finish_direct_load(device, buf);
+			dev_dbg(device, "system data: direct-loading firmware %s\n", buf->fw_id);
+			goto out;
+		}
+		if (rc != -ENOENT) {
+			dev_warn(device, "system data, attempted to load %s, but failed with error %d\n",
+				 path, rc);
+			goto out;
+		}
+	}
+out:
+	__putname(path);
+	return rc;
+}
+
 /* firmware holds the ownership of pages */
 static void firmware_free_data(const struct firmware *fw)
 {
@@ -420,9 +528,9 @@ static void fw_set_page_data(struct firmware_buf *buf, struct firmware *fw)
 	fw->size = buf->size;
 	fw->data = buf->data;
 
-	pr_debug("%s: fw-%s buf=%p data=%p size=%u\n",
+	pr_debug("%s: fw-%s buf=%p data=%p size=%u sig_ok=%d\n",
 		 __func__, buf->fw_id, buf, buf->data,
-		 (unsigned int)buf->size);
+		 (unsigned int)buf->size, buf->sig_ok);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -1058,6 +1166,65 @@ static int sync_cached_firmware_buf(struct firmware_buf *buf)
 	return ret;
 }
 
+#ifdef CONFIG_SYSTEM_DATA_SIG
+static int sysdata_sig_check(struct firmware *fw, const char *name)
+{
+	int err = -ENOKEY;
+	struct firmware_buf *buf = fw->priv;
+	const void *data = buf->data;
+	const void *data_sig = buf->data_sig;
+
+	if (data_sig) {
+		err = system_verify_data(data, buf->size, data_sig,
+					 buf->size_sig,
+					 KEY_VERIFYING_FIRMWARE_SIGNATURE,
+					 name);
+		if (!err) {
+			buf->sig_ok = true;
+			fw_set_page_data(buf, fw);
+			return 0;
+		}
+	}
+
+	/* Not having a signature is only an error if we're strict. */
+	if (err == -ENOKEY && !sysdata_sig_enforce)
+		err = 0;
+
+	fw_set_page_data(buf, fw);
+
+	return err;
+}
+#else /* !CONFIG_SYSTEM_DATA_SIG */
+static int sysdata_sig_check(struct firmware *fw, const char *name)
+{
+	struct firmware_buf *buf = fw->priv;
+
+	fw_set_page_data(buf, fw);
+
+	return 0;
+}
+#endif /* !CONFIG_MODULE_SIG */
+
+#ifdef CONFIG_SYSTEM_DATA_SIG_FORCE
+static int sysdata_file_sig_check(const struct sysdata_file_desc *desc,
+				  struct firmware *fw, const char *name)
+{
+	return sysdata_sig_check(fw, name);
+}
+#else
+static int sysdata_file_sig_check(const struct sysdata_file_desc *desc,
+				  struct firmware *fw, const char *name)
+{
+	int ret;
+
+	ret = sysdata_sig_check(fw, name);
+	if (ret && !desc->signature_required)
+		ret = 0;
+
+	return ret;
+}
+#endif
+
 /* prepare firmware and firmware_buf structs;
  * return 0 if a firmware is already assigned, 1 if need to load one,
  * or a negative error code
@@ -1295,10 +1462,11 @@ static void sysdata_file_update(struct sysdata_file *sysdata)
 
 	sysdata->size = buf->size;
 	sysdata->data = buf->data;
+	sysdata->sig_ok = buf->sig_ok;
 
-	pr_debug("%s: fw-%s buf=%p data=%p size=%u",
+	pr_debug("%s: fw-%s buf=%p data=%p size=%u sig_ok=%d\n",
 		 __func__, buf->fw_id, buf, buf->data,
-		 (unsigned int)buf->size);
+		 (unsigned int)buf->size, buf->sig_ok);
 }
 
 /*
@@ -1360,13 +1528,13 @@ static int _sysdata_file_request(const struct sysdata_file **sysdata_p,
 	int ret = -EINVAL;
 
 	if (!sysdata_p)
-		goto out;
+		goto out_err;
 
 	if (!desc)
-		goto out;
+		goto out_err;
 
 	if (!name || name[0] == '\0')
-		goto out;
+		goto out_err;
 
 	ret = _request_sysdata_prepare(&sysdata, name, device);
 	if (ret <= 0) /* error or already assigned */
@@ -1374,7 +1542,7 @@ static int _sysdata_file_request(const struct sysdata_file **sysdata_p,
 
 	fw = sysdata->priv;
 
-	ret = fw_get_filesystem_firmware(device, fw->priv);
+	ret = get_filesystem_sysdata(device, fw->priv);
 	if (ret && !desc->optional)
 		pr_err("Direct system data load for %s failed with error %d\n",
 		       name, ret);
@@ -1383,6 +1551,10 @@ static int _sysdata_file_request(const struct sysdata_file **sysdata_p,
 		ret = assign_firmware_buf(fw, device, FW_OPT_UEVENT);
 
  out:
+	if (ret >= 0)
+		ret = sysdata_file_sig_check(desc, fw, name);
+
+ out_err:
 	if (ret < 0) {
 		release_sysdata_file(sysdata);
 		sysdata = NULL;

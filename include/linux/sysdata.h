@@ -19,6 +19,7 @@
 struct sysdata_file {
 	size_t size;
 	const u8 *data;
+	bool sig_ok;
 
 	/* sysdata loader private fields */
 	void *priv;
@@ -72,6 +73,9 @@ struct sysdata_file_sync_reqs {
  *	release_sysdata_file(). By default this is set to false and the kernel
  *	will release the system data file for you after callback processing
  *	has completed.
+ * @signature_required: if true a digital signature is required for this file.
+ * 	This is always true if you have build a kernel with
+ * 	CONFIG_SYSTEM_DATA_SIG_FORCE enabled.
  * @sync_reqs: synchronization requirements, this will be taken care for you
  *	by default if you are usingy sdata_file_request(), otherwise you
  *	should provide your own requirements.
@@ -96,6 +100,7 @@ struct sysdata_file_sync_reqs {
 struct sysdata_file_desc {
 	bool optional;
 	bool keep;
+	bool signature_required;
 	struct sysdata_file_sync_reqs sync_reqs;
 	union sysdata_file_cbs cbs;
 };

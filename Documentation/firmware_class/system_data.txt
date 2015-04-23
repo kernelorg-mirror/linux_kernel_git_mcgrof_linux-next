@@ -69,3 +69,159 @@ User mode helper
 
 The old firmware API provided support for an optional user mode helper. The
 new system data request API abandons all notions of the usermode helper.
+
+System data signing
+===================
+
+The kernel system data signing facility enables system data files to have
+associated cryptographic signatures that can be used to validate them.  This
+uses the same mechanism as is used for module signing, but keys used for
+system data signing are specialized and can only be used to validate system
+data files. For now its expected system data signatures to be provided by the
+linux-firmware maintainer. In the future it is expected that the system data
+request set of APIs can customize the key requirements through the system data
+request descriptor. System data signatures must also have the associated
+system data file name as part of the system data signature, this prevents
+the same file to be used for other purposes or be consumed by the caller
+through other call sites.
+
+System data signatures are kept in separate files from the actual system data
+files to avoid accidental corruption of the system dat afiles and to avoid
+licensing issues from changes.
+
+A system data signature file consists of a PKCS#7 message containing one or
+more cryptographic signatures for the respective system data file.  The
+signature file is named for the system data file to which it corresponds and
+must be kept in the same directory.  For instance, for the signature file for
+a system data file named foo.bin would be named foo.bin.p7s.
+
+When system data signature checking is enabled (CONFIG_SYSTEM_DATA_SIG) and
+when one of the system data request APIs (sysdata_file_request*()) is used
+against foo.bin, the file foo.bin.p7s will also be looked for and used as
+the system data file signature.
+
+If a signature file is found, the kernel's system keyring will be searched for
+public keys that can be used to verify the signatures held therein.  For any
+signature for which a matching key is found, the kernel will attempt to verify
+the signature with the key.  If verification fails on any signature, the
+system data request will be rejected (with EKEYREJECTED) - even if other
+signatures match.
+
+If CONFIG_SYSTEM_DATA_SIG_FORCE is also enabled, then the system data request
+will be rejected (with ENOKEY) if there is no signature file or none of the
+signatures match any of the keys in the kernel system keyring.  But if at least
+one signature matches, then the load will be allowed to proceed.
+
+If CONFIG_SYSTEM_DATA_SIG is not enabled the signature file is ignored
+completely.
+
+System data signing increases security by making it harder to load a malicious
+system data into the kernel.  The system data signature checking is done by the
+kernel so that it is not necessary to have trusted userspace bits.
+
+Configuring system data signing
+===============================
+
+The system dtaa signing facility is enabled by going to the section:
+
+-> Device Drivers
+  -> Generic Driver Options
+    -> Userspace firmware loading support (FW_LOADER [=y])
+      -> System data signature verification (SYSTEM_DATA_SIG [=y])
+
+If you want to not allow unsigned system data to be loaded you should
+enable:
+
+"Require all system data files to be validly signed" (CONFIG_SYSTEM_DATA_SIG_FORCE [=y]),
+under the same menu.
+
+Creating system data request signing keys
+=========================================
+
+Keys used for signing system data requests are created using the same technique
+used as for module singing [0] however x509_extensions must be used and
+defined. In particular you'll need to make use of the extendedKeyUsage to
+annotate that the purpose of the key is only for system data file signing.
+You associate keys with system data requests purposes by using a specific
+OID reserved for system data signing:
+
+1.3.6.1.4.1.2312.16.1.1
+
+The purpose of using an x509 extension to annotate the purpose of a key is
+to prevent the same key to be used for other kernel purposes. For instance you
+may end up with something as follow for your openssl key generation
+configuration file for your system data key file generation:
+
+--------------------------------------------------------
+[ req ]
+default_bits = 4096
+distinguished_name = req_distinguished_name
+prompt = no
+string_mask = utf8only
+x509_extensions = myexts
+
+[ req_distinguished_name ]
+O = PKCS#7 test
+CN = Firmware signing key 1
+emailAddress = some_system_data_person@someorg.org
+
+[ myexts ]
+subjectKeyIdentifier=hash
+authorityKeyIdentifier=keyid
+basicConstraints=critical,CA:FALSE
+keyUsage=digitalSignature
+extendedKeyUsage=critical,1.3.6.1.4.1.2312.16.1.1
+--------------------------------------------------------
+
+[0] Documentation/module-signing.txt.
+
+Future system data OID reservations
+===================================
+
+In the future it may be possible extend existing OIDs for vendors or other
+kernel purposes. This allows the kernel the enable keys for different purposes
+or vendors, should the need arise.
+
+Using signing keys
+==================
+
+You will need:
+
+  A) A DER-encoded X.509 certificate containing the public key with an
+     extendedKeyUsage annotated for system data signing
+  B) A DER-encoded PKCS#7 message containing the signatures, these are
+     the .p7s files, annotated with the expected specific system data file name
+  C) A binary blob that is the detached data for the PKCS#7 message, this
+     is the system data file
+
+A) is must be made available to the kernel. One way to do this is to provide
+the DER-encoded public key as part of the extended list of trusted system
+keys (see CONFIG_SYSTEM_TRUSTED_KEYS).
+
+Signing firmware files
+======================
+
+To generate a DER-encoded PKCS#7 signature message for each firmware file
+you can use the kernels's own sign-file program as follows:
+
+	./scripts/sign-file -d -F $(FIRMWARE_BLOB_NAME) \
+		$(DIGEST_ALGORITHM) \
+		system_data_signing_key.pem \
+		system_data_signing.x509 \
+		$(FIRMWARE_BLOB_NAME)
+
+This should create the file $(FIRMWARE_BLOB_NAME).p7s which you must place
+in the /lib/firmware/ path. The signature is specifically annotated for the
+expected system data file name that would be used in the kernel. This prevents
+the same signature and file to be repurposed elsewhere in the kernel, ie, this
+system data file can only be introduced for consumption in the Linux kernel in
+the very call site that requested the system data file by name. Without this
+you would be able to request a properly signed system data file with a
+different name file elsewhere in the Linux kernel.
+
+The $DIGEST_ALGORITHM needs to be enabled as built-in (=y) or modular
+(=m) in the running kernel and can differ from CONFIG_MODULE_SIG_HASH.
+If you are enabling the $DIGEST_ALGORITHM as a module take care to
+ensure that this module will also be present on the initramfs used as
+some system data signatures within the initramfs may need it if using the
+firmware_class APIs and system data signing has been enabled.
