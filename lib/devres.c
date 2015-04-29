@@ -304,6 +304,30 @@ void __iomem *pcim_iomap(struct pci_dev *pdev, int bar, unsigned long maxlen)
 EXPORT_SYMBOL(pcim_iomap);
 
 /**
+ * pcim_iomap_wc - Managed pcim_iomap_wc()
+ * @pdev: PCI device to iomap for
+ * @bar: BAR to iomap
+ * @maxlen: Maximum length of iomap
+ *
+ * Managed pci_iomap_wc().  Map is automatically unmapped on driver
+ * detach.
+ */
+void __iomem *pcim_iomap_wc(struct pci_dev *pdev, int bar, unsigned long maxlen)
+{
+	void __iomem **tbl;
+
+	BUG_ON(bar >= PCIM_IOMAP_MAX);
+
+	tbl = (void __iomem **)pcim_iomap_table(pdev);
+	if (!tbl || tbl[bar])	/* duplicate mappings not allowed */
+		return NULL;
+
+	tbl[bar] = pci_iomap_wc(pdev, bar, maxlen);
+	return tbl[bar];
+}
+EXPORT_SYMBOL_GPL(pcim_iomap_wc);
+
+/**
  * pcim_iounmap - Managed pci_iounmap()
  * @pdev: PCI device to iounmap for
  * @addr: Address to unmap
@@ -381,6 +405,60 @@ int pcim_iomap_regions(struct pci_dev *pdev, int mask, const char *name)
 	return rc;
 }
 EXPORT_SYMBOL(pcim_iomap_regions);
+
+/**
+ * pcim_iomap_wc_regions - Request and iomap PCI BARs with write-combining
+ * @pdev: PCI device to map IO resources for
+ * @mask: Mask of BARs to request and iomap
+ * @name: Name used when requesting regions
+ *
+ * Request and iomap regions specified by @mask with a preference for
+ * write-combining.
+ */
+int pcim_iomap_wc_regions(struct pci_dev *pdev, int mask, const char *name)
+{
+	void __iomem * const *iomap;
+	int i, rc;
+
+	iomap = pcim_iomap_table(pdev);
+	if (!iomap)
+		return -ENOMEM;
+
+	for (i = 0; i < DEVICE_COUNT_RESOURCE; i++) {
+		unsigned long len;
+
+		if (!(mask & (1 << i)))
+			continue;
+
+		rc = -EINVAL;
+		len = pci_resource_len(pdev, i);
+		if (!len)
+			goto err_inval;
+
+		rc = pci_request_region(pdev, i, name);
+		if (rc)
+			goto err_inval;
+
+		rc = -ENOMEM;
+		if (!pcim_iomap_wc(pdev, i, 0))
+			goto err_region;
+	}
+
+	return 0;
+
+ err_region:
+	pci_release_region(pdev, i);
+ err_inval:
+	while (--i >= 0) {
+		if (!(mask & (1 << i)))
+			continue;
+		pcim_iounmap(pdev, iomap[i]);
+		pci_release_region(pdev, i);
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL_GPL(pcim_iomap_wc_regions);
 
 /**
  * pcim_iomap_regions_request_all - Request all BARs and iomap specified ones
