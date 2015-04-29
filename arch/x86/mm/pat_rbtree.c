@@ -21,6 +21,9 @@
 
 #include "pat_internal.h"
 
+#undef pr_fmt
+#define pr_fmt(fmt)	"PAT: " fmt
+
 /*
  * The memtype tree keeps track of memory type for specific
  * physical memory areas. Without proper tracking, conflicting memory
@@ -160,8 +163,8 @@ success:
 	return 0;
 
 failure:
-	printk(KERN_INFO "%s:%d conflicting memory types "
-		"%Lx-%Lx %s<->%s\n", current->comm, current->pid, start,
+	pr_info("%s:%d conflicting memory types %Lx-%Lx %s<->%s\n",
+		current->comm, current->pid, start,
 		end, cattr_name(found_type), cattr_name(match->type));
 	return -EBUSY;
 }
