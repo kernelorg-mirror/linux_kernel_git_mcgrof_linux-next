@@ -71,7 +71,7 @@ extern void dma_free_coherent(struct device *dev, size_t size,
 			      void *cpu_addr, dma_addr_t handle);
 
 /**
- * dma_alloc_writecombine - allocate write-combining memory for DMA
+ * dma_alloc_wc - allocate write-combining memory for DMA
  * @dev: valid struct device pointer, or NULL for ISA and EISA-like devices
  * @size: required memory size
  * @handle: bus-specific DMA address
@@ -81,24 +81,24 @@ extern void dma_free_coherent(struct device *dev, size_t size,
  * return the CPU-viewed address, and sets @handle to be the
  * device-viewed address.
  */
-extern void *dma_alloc_writecombine(struct device *dev, size_t size,
-				    dma_addr_t *handle, gfp_t gfp);
+extern void *dma_alloc_wc(struct device *dev, size_t size,
+			  dma_addr_t *handle, gfp_t gfp);
 
 /**
- * dma_free_coherent - free memory allocated by dma_alloc_writecombine
+ * dma_free_coherent - free memory allocated by dma_alloc_wc
  * @dev: valid struct device pointer, or NULL for ISA and EISA-like devices
- * @size: size of memory originally requested in dma_alloc_writecombine
- * @cpu_addr: CPU-view address returned from dma_alloc_writecombine
- * @handle: device-view address returned from dma_alloc_writecombine
+ * @size: size of memory originally requested in dma_alloc_wc
+ * @cpu_addr: CPU-view address returned from dma_alloc_wc
+ * @handle: device-view address returned from dma_alloc_wc
  *
  * Free (and unmap) a DMA buffer previously allocated by
- * dma_alloc_writecombine().
+ * dma_alloc_wc().
  *
  * References to memory and mappings associated with cpu_addr/handle
  * during and after this call executing are illegal.
  */
-extern void dma_free_writecombine(struct device *dev, size_t size,
-				  void *cpu_addr, dma_addr_t handle);
+extern void dma_free_wc(struct device *dev, size_t size,
+			void *cpu_addr, dma_addr_t handle);
 
 /**
  * dma_map_single - map a single buffer for streaming DMA

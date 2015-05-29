@@ -372,13 +372,13 @@ int dma_mmap_coherent(struct device *dev, struct vm_area_struct *vma,
 }
 EXPORT_SYMBOL(dma_mmap_coherent);
 
-int dma_mmap_writecombine(struct device *dev, struct vm_area_struct *vma,
-			  void *cpu_addr, dma_addr_t dma_addr, size_t size)
+int dma_mmap_wc(struct device *dev, struct vm_area_struct *vma,
+		void *cpu_addr, dma_addr_t dma_addr, size_t size)
 {
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	return dma_mmap(dev, vma, cpu_addr, dma_addr, size);
 }
-EXPORT_SYMBOL(dma_mmap_writecombine);
+EXPORT_SYMBOL(dma_mmap_wc);
 
 
 

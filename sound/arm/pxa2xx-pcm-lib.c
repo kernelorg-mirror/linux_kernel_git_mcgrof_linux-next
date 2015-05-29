@@ -238,8 +238,8 @@ int __pxa2xx_pcm_open(struct snd_pcm_substream *substream)
 	if (!rtd)
 		goto out;
 	rtd->dma_desc_array =
-		dma_alloc_writecombine(substream->pcm->card->dev, PAGE_SIZE,
-				       &rtd->dma_desc_array_phys, GFP_KERNEL);
+		dma_alloc_wc(substream->pcm->card->dev, PAGE_SIZE,
+			     &rtd->dma_desc_array_phys, GFP_KERNEL);
 	if (!rtd->dma_desc_array)
 		goto err1;
 
@@ -259,8 +259,8 @@ int __pxa2xx_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct pxa2xx_runtime_data *rtd = runtime->private_data;
 
-	dma_free_writecombine(substream->pcm->card->dev, PAGE_SIZE,
-			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
+	dma_free_wc(substream->pcm->card->dev, PAGE_SIZE,
+		    rtd->dma_desc_array, rtd->dma_desc_array_phys);
 	kfree(rtd);
 	return 0;
 }
@@ -270,10 +270,8 @@ int pxa2xx_pcm_mmap(struct snd_pcm_substream *substream,
 	struct vm_area_struct *vma)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
-	return dma_mmap_writecombine(substream->pcm->card->dev, vma,
-				     runtime->dma_area,
-				     runtime->dma_addr,
-				     runtime->dma_bytes);
+	return dma_mmap_wc(substream->pcm->card->dev, vma, runtime->dma_area,
+			   runtime->dma_addr, runtime->dma_bytes);
 }
 EXPORT_SYMBOL(pxa2xx_pcm_mmap);
 
@@ -285,8 +283,7 @@ int pxa2xx_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 	buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	buf->dev.dev = pcm->card->dev;
 	buf->private_data = NULL;
-	buf->area = dma_alloc_writecombine(pcm->card->dev, size,
-					   &buf->addr, GFP_KERNEL);
+	buf->area = dma_alloc_wc(pcm->card->dev, size, &buf->addr, GFP_KERNEL);
 	if (!buf->area)
 		return -ENOMEM;
 	buf->bytes = size;
@@ -307,8 +304,7 @@ void pxa2xx_pcm_free_dma_buffers(struct snd_pcm *pcm)
 		buf = &substream->dma_buffer;
 		if (!buf->area)
 			continue;
-		dma_free_writecombine(pcm->card->dev, buf->bytes,
-				      buf->area, buf->addr);
+		dma_free_wc(pcm->card->dev, buf->bytes, buf->area, buf->addr);
 		buf->area = NULL;
 	}
 }
