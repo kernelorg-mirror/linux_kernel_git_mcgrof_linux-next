@@ -25,3 +25,14 @@ are already using asynchronous initialization mechanisms which will not
 stall or delay boot. Even if loading firmware does not take a lot of time
 processing firmware might, and this can still delay boot or initialization,
 as such mechanisms such as asynchronous probe can help supplement drivers.
+
+Two APIs
+========
+
+Two APIs are provided for firmware:
+
+* request_firmware API - old firmware API
+* driver_data API - flexible API
+
+New features and development should be added through the new driver_data API to
+avoid unnecessary collateral evolutions when adding new features.
