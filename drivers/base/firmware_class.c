@@ -2,6 +2,7 @@
  * firmware_class.c - Multi purpose firmware loading support
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
+ * Copyright (c) 2016 Luis R. Rodriguez <mcgrof@kernel.org>
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -18,6 +19,7 @@
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 #include <linux/highmem.h>
+#include <linux/drvdata.h>
 #include <linux/firmware.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
@@ -39,6 +41,12 @@
 MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
 MODULE_LICENSE("GPL");
+
+static const struct drvdata_reqs dfl_sync_reqs = {
+	.mode = DRVDATA_SYNC,
+	.module = THIS_MODULE,
+	.gfp = GFP_KERNEL,
+};
 
 /* Builtin firmware support */
 
@@ -1338,6 +1346,184 @@ void release_firmware(const struct firmware *fw)
 }
 EXPORT_SYMBOL(release_firmware);
 
+static void drvdata_file_update(struct drvdata *drvdata)
+{
+	struct firmware *fw;
+	struct firmware_buf *buf;
+
+	if (!drvdata || !drvdata->priv)
+		return;
+
+	fw = drvdata->priv;
+	if (!fw->priv)
+		return;
+
+	buf = fw->priv;
+
+	drvdata->size = buf->size;
+	drvdata->data = buf->data;
+
+	pr_debug("%s: fw-%s buf=%p data=%p size=%u",
+		 __func__, buf->fw_id, buf, buf->data,
+		 (unsigned int)buf->size);
+}
+
+/*
+ * prepare firmware and firmware_buf structs;
+ * return 0 if a firmware is already assigned, 1 if need to load one,
+ * or a negative error code
+ */
+static int
+_request_drvdata_prepare(struct drvdata **drvdata_p, const char *name,
+			 struct device *device)
+{
+	struct drvdata *drvdata;
+	struct firmware *fw;
+	int ret;
+
+	*drvdata_p = drvdata = kzalloc(sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata) {
+		dev_err(device, "%s: kmalloc(struct drvdata) failed\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	ret = _request_firmware_prepare(&fw, name, device, NULL, 0);
+	if (ret >= 0)
+		drvdata->priv = fw;
+
+	return ret;
+}
+
+/**
+ * release_drvdata_file: - release the resource associated with the drvdata file
+ * @drvdata: drvdata file resource to release
+ **/
+void release_drvdata(const struct drvdata *drvdata)
+{
+	struct firmware *fw;
+
+	if (drvdata) {
+		if (drvdata->priv) {
+			fw = drvdata->priv;
+			release_firmware(fw);
+		}
+	}
+	kfree(drvdata);
+}
+EXPORT_SYMBOL_GPL(release_drvdata);
+
+/*
+ * drvdata_p is always set to be NULL unless a proper driver
+ * data file was found.
+ */
+static int _drvdata_request(const struct drvdata **drvdata_p,
+			    const char *name,
+			    const struct drvdata_req_params *params,
+			    struct device *device)
+{
+	struct drvdata *drvdata = NULL;
+	struct firmware *fw = NULL;
+	int ret = -EINVAL;
+
+	if (!drvdata_p)
+		goto out;
+
+	if (!params)
+		goto out;
+
+	if (!name || name[0] == '\0')
+		goto out;
+
+	ret = _request_drvdata_prepare(&drvdata, name, device);
+	if (ret <= 0) /* error or already assigned */
+		goto out;
+
+	fw = drvdata->priv;
+
+	ret = fw_get_filesystem_firmware(device, fw->priv);
+	if (ret && !params->optional)
+		pr_err("Direct driver data load for %s failed with error %d\n",
+		       name, ret);
+
+	if (!ret)
+		ret = assign_firmware_buf(fw, device, FW_OPT_UEVENT);
+
+ out:
+	if (ret < 0) {
+		release_drvdata(drvdata);
+		drvdata = NULL;
+	}
+
+	drvdata_file_update(drvdata);
+
+	*drvdata_p = drvdata;
+
+	return ret;
+}
+
+/**
+ * drvdata_request - synchronous request for a driver data file
+ * @name: name of the driver data file
+ * @params: driver data parameters, it provides all the requirements
+ * 	parameters which must be met for the file being requested.
+ * @device: device for which firmware is being loaded
+ *
+ * This performs a synchronous driver data lookup with the requirements
+ * specified on @params, if the file was found meeting the criteria requested
+ * 0 is returned. Access to the driver data data can be accessed through
+ * an optional callback set on the @desc. If the driver data is optional
+ * you must specify that on @params and if set you may provide an alternative
+ * callback which if set would be run if the driver data was not found.
+ *
+ * The driver data passed to the callbacks will be NULL unless it was
+ * found matching all the criteria on @params. 0 is always returned if the file
+ * was found unless a callback was provided, in which case the callback's
+ * return value will be passed. Unless the params->keep was set the kernel will
+ * release the driver data for you after your callbacks were processed.
+ *
+ * Reference counting is used during the duration of this call on both the
+ * device and module that made the request. This prevents any callers from
+ * freeing either the device or module prior to completion of this call.
+ */
+int drvdata_request(const char *name,
+		    const struct drvdata_req_params *params,
+		    struct device *device)
+{
+	const struct drvdata *drvdata;
+	const struct drvdata_reqs *sync_reqs;
+	int ret;
+
+	if (!device || !params || !name || name[0] == '\0')
+		return -EINVAL;
+
+	if (params->sync_reqs.mode != DRVDATA_SYNC)
+		return -EINVAL;
+
+	if (drvdata_sync_opt_cb(params) && !params->optional)
+		return -EINVAL;
+
+	sync_reqs = &dfl_sync_reqs;
+
+	__module_get(sync_reqs->module);
+	get_device(device);
+
+	ret = _drvdata_request(&drvdata, name, params, device);
+	if (ret && params->optional)
+		ret = drvdata_sync_opt_call_cb(params);
+	else
+		ret = drvdata_sync_call_cb(params, drvdata);
+
+	if (!params->keep)
+		release_drvdata(drvdata);
+
+	put_device(device);
+	module_put(sync_reqs->module);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(drvdata_request);
+
 /* Async support */
 struct firmware_work {
 	struct work_struct work;
@@ -1425,6 +1611,145 @@ request_firmware_nowait(
 	return 0;
 }
 EXPORT_SYMBOL(request_firmware_nowait);
+
+struct drvdata_file_work {
+	const char *name;
+	struct drvdata_req_params params;
+	struct device *device;
+};
+
+static ASYNC_DOMAIN(drvdata_async_domain);
+
+static void request_drvdata_file_work_func(void *data, async_cookie_t cookie)
+{
+	struct drvdata_file_work *drv_work = data;
+	const struct drvdata_req_params *params;
+	const struct drvdata_reqs *sync_reqs;
+	const struct drvdata *drvdata;
+	int ret;
+
+	params = &drv_work->params;
+	sync_reqs = &params->sync_reqs;
+
+	ret = _drvdata_request(&drvdata, drv_work->name,
+			       params, drv_work->device);
+	if (ret && params->optional)
+		drvdata_async_opt_call_cb(params);
+	else
+		drvdata_async_call_cb(drvdata, params);
+
+	if (!params->keep)
+		release_drvdata(drvdata);
+
+	put_device(drv_work->device);
+	module_put(sync_reqs->module);
+
+	kfree_const(drv_work->name);
+	kfree(drv_work);
+}
+
+/**
+ * drvdata_request_async - asynchronous request for a driver data file
+ * @name: name of the driver data file
+ * @desc: driver data file descriptor, it provides all the requirements
+ * 	which must be met for the file being requested.
+ * @device: device for which firmware is being loaded
+ * @async_cookie: used for checkpointing your async request
+ *
+ * This performs an asynchronous driver data file lookup with the requirements
+ * specified on @desc. The request for the actual driver data file lookup will
+ * be scheduled with async_schedule_domain() to be run at a later time. 0 is
+ * returned if we were able to asynchronously schedlue your work to be run.
+ *
+ * Reference counting is used during the duration of this scheduled call on
+ * both the device and module that made the request. This prevents any callers
+ * from freeing either the device or module prior to completion of the
+ * scheduled work.
+ *
+ * Access to the driver data file data can be accessed through an optional
+ * callback set on the @desc. If the driver data file is optional you must
+ * specify that on the @desc and if set you may provide an alternative
+ * callback which if set would be run if the driver data file was not found.
+ *
+ * The driver data file passed to the callbacks will always be NULL unless
+ * it was found matching all the criteria on @desc. Unless the desc->keep
+ * was set the kernel will release the driver data file for you after your
+ * callbacks were processed on the scheduled work.
+ *
+ * You should use rely on async_cookie to determine if your asynchronous work
+ * has been scheduled and completed. If you need to wait for completion of
+ * processing of your drvdata through your callbacks, or if you just want to
+ * know the hunt is over you can drvdata_synchronize_request() with the
+ * async_cookie.
+ */
+int drvdata_request_async(const char *name,
+			  const struct drvdata_req_params *params,
+			  struct device *device,
+			  async_cookie_t *async_cookie)
+{
+	struct drvdata_file_work *drv_work;
+	const struct drvdata_reqs *sync_reqs;
+
+	if (!device || !params || !name || name[0] == '\0')
+		return -EINVAL;
+
+	if (params->sync_reqs.mode != DRVDATA_ASYNC)
+		return -EINVAL;
+
+	if (drvdata_async_opt_cb(params) && !params->optional)
+		return -EINVAL;
+
+	sync_reqs = &params->sync_reqs;
+
+	drv_work = kzalloc(sizeof(struct drvdata_file_work), sync_reqs->gfp);
+	if (!drv_work)
+		return -ENOMEM;
+
+	drv_work->device = device;
+	memcpy(&drv_work->params, params, sizeof(struct drvdata_req_params));
+	drv_work->name = kstrdup_const(name, sync_reqs->gfp);
+	if (!drv_work->name) {
+		kfree(drv_work);
+		return -ENOMEM;
+	}
+
+	if (!try_module_get(sync_reqs->module)) {
+		kfree_const(drv_work->name);
+		kfree(drv_work);
+		return -EFAULT;
+	}
+
+	get_device(drv_work->device);
+
+	*async_cookie = async_schedule_domain(request_drvdata_file_work_func,
+					      drv_work,
+					      &drvdata_async_domain);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(drvdata_request_async);
+
+/**
+ * drvdata_synchronize_request - wait until your async drvdata calls complete
+ * @async_cookie: async cookie
+ *
+ * Waits until all asynchronous drvdata calls prior to and up to @async_cookie
+ * have been completed. You can use this to wait for completion of your own
+ * async callback. Your wait will end after request_drvdata_file_work_func()
+ * is called for your cookie. At this point you can rest assured your
+ * series of async callbacks would have been called if supplied.
+ *
+ * async_cookie+1 is used as async_synchronize_cookie_domain() only waits
+ * until at least your own call is next in queue to be run, we want the
+ * next item after yours to be in queue, this tells us we have run already.
+ * Should there not be any other async scheduled item after yours this will
+ * simply wait until all async drvdata calls are complete.
+ */
+void drvdata_synchronize_request(async_cookie_t async_cookie)
+{
+	async_synchronize_cookie_domain(async_cookie+1, &drvdata_async_domain);
+}
+EXPORT_SYMBOL_GPL(drvdata_synchronize_request);
 
 #ifdef CONFIG_PM_SLEEP
 static ASYNC_DOMAIN_EXCLUSIVE(fw_cache_domain);
@@ -1799,6 +2124,7 @@ static int __init firmware_class_init(void)
 
 static void __exit firmware_class_exit(void)
 {
+	async_synchronize_full_domain(&drvdata_async_domain);
 #ifdef CONFIG_PM_SLEEP
 	unregister_syscore_ops(&fw_syscore_ops);
 	unregister_pm_notifier(&fw_cache.pm_notify);
@@ -1807,6 +2133,7 @@ static void __exit firmware_class_exit(void)
 	unregister_reboot_notifier(&fw_shutdown_nb);
 	class_unregister(&firmware_class);
 #endif
+	async_unregister_domain(&drvdata_async_domain);
 }
 
 fs_initcall(firmware_class_init);

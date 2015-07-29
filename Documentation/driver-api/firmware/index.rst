@@ -7,6 +7,7 @@ Linux Firmware API
    introduction
    core
    request_firmware
+   drvdata
 
 .. only::  subproject and html
 
