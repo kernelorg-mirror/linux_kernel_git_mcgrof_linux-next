@@ -361,19 +361,17 @@ static int fw_get_filesystem_firmware(struct device *device,
 			continue;
 		rc = fw_read_file_contents(file, buf);
 		fput(file);
-		if (rc)
+		if (rc == 0) {
+			dev_dbg(device, "direct-loading %s\n",
+				buf->fw_id);
+			fw_finish_direct_load(device, buf);
+			goto out;
+		} else
 			dev_warn(device, "loading %s failed with error %d\n",
 				 path, rc);
-		else
-			break;
 	}
+out:
 	__putname(path);
-
-	if (!rc) {
-		dev_dbg(device, "direct-loading %s\n",
-			buf->fw_id);
-		fw_finish_direct_load(device, buf);
-	}
 
 	return rc;
 }
