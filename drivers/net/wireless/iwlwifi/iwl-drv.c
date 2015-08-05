@@ -64,7 +64,7 @@
  *****************************************************************************/
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
-#include <linux/firmware.h>
+#include <linux/sysdata.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
@@ -204,7 +204,7 @@ static int iwl_alloc_fw_desc(struct iwl_drv *drv, struct fw_desc *desc,
 	return 0;
 }
 
-static void iwl_req_fw_callback(const struct firmware *ucode_raw,
+static void iwl_req_fw_callback(const struct sysdata_file *ucode_raw,
 				void *context);
 
 #define UCODE_EXPERIMENTAL_INDEX	100
@@ -214,6 +214,9 @@ static int iwl_request_firmware(struct iwl_drv *drv, bool first)
 {
 	const char *name_pre = drv->cfg->fw_name_pre;
 	char tag[8];
+	const struct sysdata_file_desc fw_desc = {
+		SYSDATA_DEFAULT_ASYNC(iwl_req_fw_callback, drv),
+	};
 
 	if (first) {
 #ifdef CONFIG_IWLWIFI_DEBUG_EXPERIMENTAL_UCODE
@@ -252,9 +255,8 @@ static int iwl_request_firmware(struct iwl_drv *drv, bool first)
 				? "EXPERIMENTAL " : "",
 		       drv->firmware_name);
 
-	return request_firmware_nowait(THIS_MODULE, 1, drv->firmware_name,
-				       drv->trans->dev,
-				       GFP_KERNEL, drv, iwl_req_fw_callback);
+	return sysdata_file_request_async(drv->firmware_name, &fw_desc,
+					  drv->trans->dev);
 }
 
 struct fw_img_parsing {
@@ -463,7 +465,7 @@ static int iwl_set_ucode_capabilities(struct iwl_drv *drv, const u8 *data,
 }
 
 static int iwl_parse_v1_v2_firmware(struct iwl_drv *drv,
-				    const struct firmware *ucode_raw,
+				    const struct sysdata_file *ucode_raw,
 				    struct iwl_firmware_pieces *pieces)
 {
 	struct iwl_ucode_header *ucode = (void *)ucode_raw->data;
@@ -564,7 +566,7 @@ static int iwl_parse_v1_v2_firmware(struct iwl_drv *drv,
 }
 
 static int iwl_parse_tlv_firmware(struct iwl_drv *drv,
-				const struct firmware *ucode_raw,
+				const struct sysdata_file *ucode_raw,
 				struct iwl_firmware_pieces *pieces,
 				struct iwl_ucode_capabilities *capa)
 {
@@ -1103,7 +1105,8 @@ static void _iwl_op_mode_stop(struct iwl_drv *drv)
  * If loaded successfully, copies the firmware into buffers
  * for the card to fetch (via DMA).
  */
-static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
+static void iwl_req_fw_callback(const struct sysdata_file *ucode_raw,
+				void *context)
 {
 	struct iwl_drv *drv = context;
 	struct iwl_fw *fw = &drv->fw;
@@ -1309,9 +1312,6 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 		fw->ucode_capa.standard_phy_calibration_size =
 			IWL_MAX_STANDARD_PHY_CALIBRATE_TBL_SIZE;
 
-	/* We have our copies now, allow OS release its copies */
-	release_firmware(ucode_raw);
-
 	mutex_lock(&iwlwifi_opmode_table_mtx);
 	if (fw->mvm_fw)
 		op = &iwlwifi_opmode_table[MVM_OP_MODE];
@@ -1362,7 +1362,6 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 
  try_again:
 	/* try next, if any */
-	release_firmware(ucode_raw);
 	if (iwl_request_firmware(drv, false))
 		goto out_unbind;
 	kfree(pieces);
@@ -1371,7 +1370,6 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
  out_free_fw:
 	IWL_ERR(drv, "failed to allocate pci memory\n");
 	iwl_dealloc_ucode(drv);
-	release_firmware(ucode_raw);
  out_unbind:
 	kfree(pieces);
 	complete(&drv->request_firmware_complete);
