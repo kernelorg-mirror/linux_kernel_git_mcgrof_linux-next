@@ -393,3 +393,25 @@ config FOO
 	depends on BAR && m
 
 limits FOO to module (=m) or disabled (=n).
+
+Kconfig recursive dependency limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you've hit the Kconfig error: "recursive dependency detected" you've run
+into a recursive dependency issue with Kconfig. Kconfig does not do recursive
+dependency resolution, this has a few implications for Kconfig file writers. In
+practice it means that for instance if a driver A selects a few kconfig symbols
+another driver B which selects any of these symbols cannot negate any of the
+symbols the driver A selected.  Because of this current limitation developers
+who run into this type of recursive dependency issue have two diverging
+options:
+
+  a) Either swap all "select FOO" to "depends on FOO" or,
+  b) Change the offending "depends on FOO" to "select FOO"
+
+Kconfig's limitations can be addressed by implementing a SAT solver for it,
+but until then, Kconfig is limitted to require developers to use one of
+the above two mechanisms to address recursive dependency issues. For more
+details you can refer to this thread and discussion:
+
+http://lkml.kernel.org/r/1432241149-8762-1-git-send-email-mcgrof@do-not-panic.com
