@@ -124,17 +124,15 @@ static int sti_cursor_prepare_layer(struct sti_layer *layer, bool first_prepare)
 		cursor->height = layer->src_h;
 
 		if (cursor->pixmap.base)
-			dma_free_writecombine(layer->dev,
-					      cursor->pixmap.size,
-					      cursor->pixmap.base,
-					      cursor->pixmap.paddr);
+			dma_free_wc(layer->dev, cursor->pixmap.size,
+				    cursor->pixmap.base, cursor->pixmap.paddr);
 
 		cursor->pixmap.size = cursor->width * cursor->height;
 
-		cursor->pixmap.base = dma_alloc_writecombine(layer->dev,
-							cursor->pixmap.size,
-							&cursor->pixmap.paddr,
-							GFP_KERNEL | GFP_DMA);
+		cursor->pixmap.base = dma_alloc_wc(layer->dev,
+						   cursor->pixmap.size,
+						   &cursor->pixmap.paddr,
+						   GFP_KERNEL | GFP_DMA);
 		if (!cursor->pixmap.base) {
 			DRM_ERROR("Failed to allocate memory for pixmap\n");
 			return -ENOMEM;
@@ -225,10 +223,8 @@ struct sti_layer *sti_cursor_create(struct device *dev)
 	}
 
 	/* Allocate clut buffer */
-	cursor->clut = dma_alloc_writecombine(dev,
-			0x100 * sizeof(unsigned short),
-			&cursor->clut_paddr,
-			GFP_KERNEL | GFP_DMA);
+	cursor->clut = dma_alloc_wc(dev, 0x100 * sizeof(unsigned short),
+				    &cursor->clut_paddr, GFP_KERNEL | GFP_DMA);
 
 	if (!cursor->clut) {
 		DRM_ERROR("Failed to allocate memory for cursor clut\n");

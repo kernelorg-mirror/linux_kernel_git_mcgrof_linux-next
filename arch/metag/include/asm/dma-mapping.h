@@ -23,8 +23,8 @@ void dma_sync_for_cpu(void *vaddr, size_t size, int dma_direction);
 int dma_mmap_coherent(struct device *dev, struct vm_area_struct *vma,
 		      void *cpu_addr, dma_addr_t dma_addr, size_t size);
 
-int dma_mmap_writecombine(struct device *dev, struct vm_area_struct *vma,
-			  void *cpu_addr, dma_addr_t dma_addr, size_t size);
+int dma_mmap_wc(struct device *dev, struct vm_area_struct *vma,
+		void *cpu_addr, dma_addr_t dma_addr, size_t size);
 
 static inline dma_addr_t
 dma_map_single(struct device *dev, void *ptr, size_t size,
