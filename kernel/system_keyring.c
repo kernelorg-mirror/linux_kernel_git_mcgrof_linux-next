@@ -16,7 +16,7 @@
 #include <linux/err.h>
 #include <keys/asymmetric-type.h>
 #include <keys/system_keyring.h>
-#include "module-internal.h"
+#include <crypto/pkcs7.h>
 
 struct key *system_trusted_keyring;
 EXPORT_SYMBOL_GPL(system_trusted_keyring);
@@ -104,3 +104,79 @@ dodgy_cert:
 	return 0;
 }
 late_initcall(load_system_certificate_list);
+
+#ifdef CONFIG_SYSTEM_DATA_VERIFICATION
+
+/**
+ * Verify a PKCS#7-based signature on system data.
+ * @data: The data to be verified.
+ * @len: Size of @data.
+ * @raw_pkcs7: The PKCS#7 message that is the signature.
+ * @pkcs7_len: The size of @raw_pkcs7.
+ * @usage: The use to which the key is being put.
+ * @firmware_name: The required firmware name or NULL.
+ */
+int system_verify_data(const void *data, unsigned long len,
+		       const void *raw_pkcs7, size_t pkcs7_len,
+		       enum key_being_used_for usage,
+		       const char *firmware_name)
+{
+	struct pkcs7_message *pkcs7;
+	const char *p7_firmware_name;
+	bool trusted;
+	int ret;
+
+	pkcs7 = pkcs7_parse_message(raw_pkcs7, pkcs7_len);
+	if (IS_ERR(pkcs7))
+		return PTR_ERR(pkcs7);
+
+	ret = -EINVAL;
+	p7_firmware_name = pkcs7_get_firmware_name(pkcs7);
+	if (firmware_name) {
+		if (!p7_firmware_name) {
+			pr_err("Expected name '%s' in firmware signature but not present\n",
+			       firmware_name);
+			goto error;
+		}
+		if (strcmp(p7_firmware_name, firmware_name) != 0) {
+			pr_err("Expected name '%s' in firmware signature but got '%s'\n",
+			       firmware_name, p7_firmware_name);
+			goto error;
+		}
+	} else {
+		if (p7_firmware_name) {
+			pr_err("Unexpected firmware name in signature '%s'\n",
+			       p7_firmware_name);
+			goto error;
+		}
+	}
+
+	/* The data should be detached - so we need to supply it. */
+	if (pkcs7_supply_detached_data(pkcs7, data, len) < 0) {
+		pr_err("PKCS#7 signature with non-detached data\n");
+		ret = -EBADMSG;
+		goto error;
+	}
+
+	ret = pkcs7_verify(pkcs7, usage);
+	if (ret < 0)
+		goto error;
+
+	ret = pkcs7_validate_trust(pkcs7, system_trusted_keyring, usage,
+				   &trusted);
+	if (ret < 0)
+		goto error;
+
+	if (!trusted) {
+		pr_err("PKCS#7 signature not signed with a trusted key\n");
+		ret = -ENOKEY;
+	}
+
+error:
+	pkcs7_free_message(pkcs7);
+	pr_devel("<==%s() = %d\n", __func__, ret);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(system_verify_data);
+
+#endif /* CONFIG_SYSTEM_DATA_VERIFICATION */

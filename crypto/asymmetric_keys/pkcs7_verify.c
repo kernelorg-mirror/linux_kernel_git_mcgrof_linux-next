@@ -170,6 +170,7 @@ static int pkcs7_verify_sig_chain(struct pkcs7_message *pkcs7,
 				  struct pkcs7_signed_info *sinfo)
 {
 	struct x509_certificate *x509 = sinfo->signer, *p;
+	struct asymmetric_key_id *auth;
 	int ret;
 
 	kenter("");
@@ -187,11 +188,14 @@ static int pkcs7_verify_sig_chain(struct pkcs7_message *pkcs7,
 			goto maybe_missing_crypto_in_x509;
 
 		pr_debug("- issuer %s\n", x509->issuer);
-		if (x509->authority)
-			pr_debug("- authkeyid %*phN\n",
-				 x509->authority->len, x509->authority->data);
+		if (x509->akid_id)
+			pr_debug("- authkeyid.id %*phN\n",
+				 x509->akid_id->len, x509->akid_id->data);
+		if (x509->akid_skid)
+			pr_debug("- authkeyid.skid %*phN\n",
+				 x509->akid_skid->len, x509->akid_skid->data);
 
-		if (!x509->authority ||
+		if ((!x509->akid_id && !x509->akid_skid) ||
 		    strcmp(x509->subject, x509->issuer) == 0) {
 			/* If there's no authority certificate specified, then
 			 * the certificate must be self-signed and is the root
@@ -204,7 +208,8 @@ static int pkcs7_verify_sig_chain(struct pkcs7_message *pkcs7,
 				   x509->raw_issuer_size) != 0)
 				return 0;
 
-			ret = x509_check_signature(x509->pub, x509);
+			ret = x509_check_signature(x509->pub, x509,
+						   KEY_VERIFYING_KEY_SELF_SIGNATURE);
 			if (ret < 0)
 				goto maybe_missing_crypto_in_x509;
 			x509->signer = x509;
@@ -215,21 +220,42 @@ static int pkcs7_verify_sig_chain(struct pkcs7_message *pkcs7,
 		/* Look through the X.509 certificates in the PKCS#7 message's
 		 * list to see if the next one is there.
 		 */
-		pr_debug("- want %*phN\n",
-			 x509->authority->len, x509->authority->data);
-		for (p = pkcs7->certs; p; p = p->next) {
-			if (!p->skid)
-				continue;
-			pr_debug("- cmp [%u] %*phN\n",
-				 p->index, p->skid->len, p->skid->data);
-			if (asymmetric_key_id_same(p->skid, x509->authority))
-				goto found_issuer;
+		auth = x509->akid_id;
+		if (auth) {
+			pr_debug("- want %*phN\n", auth->len, auth->data);
+			for (p = pkcs7->certs; p; p = p->next) {
+				pr_debug("- cmp [%u] %*phN\n",
+					 p->index, p->id->len, p->id->data);
+				if (asymmetric_key_id_same(p->id, auth))
+					goto found_issuer_check_skid;
+			}
+		} else {
+			auth = x509->akid_skid;
+			pr_debug("- want %*phN\n", auth->len, auth->data);
+			for (p = pkcs7->certs; p; p = p->next) {
+				if (!p->skid)
+					continue;
+				pr_debug("- cmp [%u] %*phN\n",
+					 p->index, p->skid->len, p->skid->data);
+				if (asymmetric_key_id_same(p->skid, auth))
+					goto found_issuer;
+			}
 		}
 
 		/* We didn't find the root of this chain */
 		pr_debug("- top\n");
 		return 0;
 
+	found_issuer_check_skid:
+		/* We matched issuer + serialNumber, but if there's an
+		 * authKeyId.keyId, that must match the CA subjKeyId also.
+		 */
+		if (x509->akid_skid &&
+		    !asymmetric_key_id_same(p->skid, x509->akid_skid)) {
+			pr_warn("Sig %u: X.509 chain contains auth-skid nonmatch (%u->%u)\n",
+				sinfo->index, x509->index, p->index);
+			return -EKEYREJECTED;
+		}
 	found_issuer:
 		pr_debug("- subject %s\n", p->subject);
 		if (p->seen) {
@@ -237,7 +263,8 @@ static int pkcs7_verify_sig_chain(struct pkcs7_message *pkcs7,
 				sinfo->index);
 			return 0;
 		}
-		ret = x509_check_signature(p->pub, x509);
+		ret = x509_check_signature(p->pub, x509,
+					   KEY_VERIFYING_KEY_SIGNATURE);
 		if (ret < 0)
 			return ret;
 		x509->signer = p;
@@ -265,7 +292,8 @@ maybe_missing_crypto_in_x509:
  * Verify one signed information block from a PKCS#7 message.
  */
 static int pkcs7_verify_one(struct pkcs7_message *pkcs7,
-			    struct pkcs7_signed_info *sinfo)
+			    struct pkcs7_signed_info *sinfo,
+			    enum key_being_used_for usage)
 {
 	int ret;
 
@@ -290,7 +318,8 @@ static int pkcs7_verify_one(struct pkcs7_message *pkcs7,
 		 sinfo->signer->index, sinfo->index);
 
 	/* Verify the PKCS#7 binary against the key */
-	ret = public_key_verify_signature(sinfo->signer->pub, &sinfo->sig);
+	ret = public_key_verify_signature(sinfo->signer->pub, &sinfo->sig,
+					  usage);
 	if (ret < 0)
 		return ret;
 
@@ -303,6 +332,7 @@ static int pkcs7_verify_one(struct pkcs7_message *pkcs7,
 /**
  * pkcs7_verify - Verify a PKCS#7 message
  * @pkcs7: The PKCS#7 message to be verified
+ * @usage: The use to which the key is being put
  *
  * Verify a PKCS#7 message is internally consistent - that is, the data digest
  * matches the digest in the AuthAttrs and any signature in the message or one
@@ -313,6 +343,9 @@ static int pkcs7_verify_one(struct pkcs7_message *pkcs7,
  * external public keys.
  *
  * Returns, in order of descending priority:
+ *
+ *  (*) -EKEYREJECTED if a key was selected that had a usage restriction at
+ *      odds with the specified usage, or:
  *
  *  (*) -EKEYREJECTED if a signature failed to match for which we found an
  *	appropriate X.509 certificate, or:
@@ -325,7 +358,8 @@ static int pkcs7_verify_one(struct pkcs7_message *pkcs7,
  *  (*) 0 if all the signature chains that don't incur -ENOPKG can be verified
  *	(note that a signature chain may be of zero length), or:
  */
-int pkcs7_verify(struct pkcs7_message *pkcs7)
+int pkcs7_verify(struct pkcs7_message *pkcs7,
+		 enum key_being_used_for usage)
 {
 	struct pkcs7_signed_info *sinfo;
 	struct x509_certificate *x509;
@@ -338,12 +372,10 @@ int pkcs7_verify(struct pkcs7_message *pkcs7)
 		ret = x509_get_sig_params(x509);
 		if (ret < 0)
 			return ret;
-		pr_debug("X.509[%u] %*phN\n",
-			 n, x509->authority->len, x509->authority->data);
 	}
 
 	for (sinfo = pkcs7->signed_infos; sinfo; sinfo = sinfo->next) {
-		ret = pkcs7_verify_one(pkcs7, sinfo);
+		ret = pkcs7_verify_one(pkcs7, sinfo, usage);
 		if (ret < 0) {
 			if (ret == -ENOPKG) {
 				sinfo->unsupported_crypto = true;
@@ -359,3 +391,28 @@ int pkcs7_verify(struct pkcs7_message *pkcs7)
 	return enopkg;
 }
 EXPORT_SYMBOL_GPL(pkcs7_verify);
+
+/**
+ * pkcs7_supply_detached_data - Supply the data needed to verify a PKCS#7 message
+ * @pkcs7: The PKCS#7 message
+ * @data: The data to be verified
+ * @datalen: The amount of data
+ *
+ * Supply the detached data needed to verify a PKCS#7 message.  Note that no
+ * attempt to retain/pin the data is made.  That is left to the caller.  The
+ * data will not be modified by pkcs7_verify() and will not be freed when the
+ * PKCS#7 message is freed.
+ *
+ * Returns -EINVAL if data is already supplied in the message, 0 otherwise.
+ */
+int pkcs7_supply_detached_data(struct pkcs7_message *pkcs7,
+			       const void *data, size_t datalen)
+{
+	if (pkcs7->data) {
+		pr_debug("Data already supplied\n");
+		return -EINVAL;
+	}
+	pkcs7->data = data;
+	pkcs7->data_len = datalen;
+	return 0;
+}

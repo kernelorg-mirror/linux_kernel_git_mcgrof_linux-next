@@ -39,8 +39,19 @@ EXPORT_SYMBOL_GPL(pkey_algo);
 const char *const pkey_id_type_name[PKEY_ID_TYPE__LAST] = {
 	[PKEY_ID_PGP]		= "PGP",
 	[PKEY_ID_X509]		= "X509",
+	[PKEY_ID_PKCS7]		= "PKCS#7",
 };
 EXPORT_SYMBOL_GPL(pkey_id_type_name);
+
+static const char *const key_usage_restrictions[NR__KEY_USAGE_RESTRICTIONS] = {
+	[KEY_USAGE_NOT_SPECIFIED]		= "unrestricted",
+	[KEY_RESTRICTED_USAGE]			= "unspecified",
+	[KEY_RESTRICTED_TO_OTHER]		= "other use",
+	[KEY_RESTRICTED_TO_MODULE_SIGNING]	= "module sig",
+	[KEY_RESTRICTED_TO_FIRMWARE_SIGNING]	= "firmware sig",
+	[KEY_RESTRICTED_TO_KEXEC_SIGNING]	= "kexec sig",
+	[KEY_RESTRICTED_TO_KEY_SIGNING]		= "key sig",
+};
 
 /*
  * Provide a part of a description of the key for /proc/keys.
@@ -53,6 +64,18 @@ static void public_key_describe(const struct key *asymmetric_key,
 	if (key)
 		seq_printf(m, "%s.%s",
 			   pkey_id_type_name[key->id_type], key->algo->name);
+}
+
+/*
+ * Describe capabilities/restrictions of the key for /proc/keys.
+ */
+static void public_key_describe_caps(const struct key *asymmetric_key,
+				     struct seq_file *m)
+{
+	struct public_key *key = asymmetric_key->payload.data;
+
+	if (key)
+		seq_puts(m, key_usage_restrictions[key->usage_restriction]);
 }
 
 /*
@@ -72,12 +95,56 @@ void public_key_destroy(void *payload)
 EXPORT_SYMBOL_GPL(public_key_destroy);
 
 /*
+ * Apply key usage policy.
+ */
+static int public_key_usage_policy(enum key_being_used_for usage,
+				   enum key_usage_restriction restriction)
+{
+	switch (usage) {
+	case KEY_VERIFYING_MODULE_SIGNATURE:
+		if (restriction != KEY_RESTRICTED_TO_MODULE_SIGNING &&
+		    restriction != KEY_USAGE_NOT_SPECIFIED)
+			goto wrong_purpose;
+		return 0;
+	case KEY_VERIFYING_FIRMWARE_SIGNATURE:
+		if (restriction != KEY_RESTRICTED_TO_FIRMWARE_SIGNING) {
+			pr_warn("Firmware signed with non-firmware key (%s)\n",
+				key_usage_restrictions[restriction]);
+			return -EKEYREJECTED;
+		}
+		return 0;
+	case KEY_VERIFYING_KEXEC_SIGNATURE:
+		if (restriction != KEY_RESTRICTED_TO_KEXEC_SIGNING &&
+		    restriction != KEY_USAGE_NOT_SPECIFIED)
+			goto wrong_purpose;
+		return 0;
+	case KEY_VERIFYING_KEY_SIGNATURE:
+		if (restriction != KEY_RESTRICTED_TO_KEY_SIGNING &&
+		    restriction != KEY_USAGE_NOT_SPECIFIED)
+			goto wrong_purpose;
+		return 0;
+	case KEY_VERIFYING_KEY_SELF_SIGNATURE:
+		return 0;
+	default:
+		BUG();
+	}
+
+wrong_purpose:
+	pr_warn("Restricted usage key (%s) used for wrong purpose (%s)\n",
+		key_usage_restrictions[restriction],
+		key_being_used_for[usage]);
+	return -EKEYREJECTED;
+}
+
+/*
  * Verify a signature using a public key.
  */
 int public_key_verify_signature(const struct public_key *pk,
-				const struct public_key_signature *sig)
+				const struct public_key_signature *sig,
+				enum key_being_used_for usage)
 {
 	const struct public_key_algorithm *algo;
+	int ret;
 
 	BUG_ON(!pk);
 	BUG_ON(!pk->mpi[0]);
@@ -104,15 +171,20 @@ int public_key_verify_signature(const struct public_key *pk,
 		return -EINVAL;
 	}
 
+	ret = public_key_usage_policy(usage, pk->usage_restriction);
+	if (ret < 0)
+		return ret;
+
 	return algo->verify_signature(pk, sig);
 }
 EXPORT_SYMBOL_GPL(public_key_verify_signature);
 
 static int public_key_verify_signature_2(const struct key *key,
-					 const struct public_key_signature *sig)
+					 const struct public_key_signature *sig,
+					 enum key_being_used_for usage)
 {
 	const struct public_key *pk = key->payload.data;
-	return public_key_verify_signature(pk, sig);
+	return public_key_verify_signature(pk, sig, usage);
 }
 
 /*
@@ -123,6 +195,7 @@ struct asymmetric_key_subtype public_key_subtype = {
 	.name			= "public_key",
 	.name_len		= sizeof("public_key") - 1,
 	.describe		= public_key_describe,
+	.describe_caps		= public_key_describe_caps,
 	.destroy		= public_key_destroy,
 	.verify_signature	= public_key_verify_signature_2,
 };

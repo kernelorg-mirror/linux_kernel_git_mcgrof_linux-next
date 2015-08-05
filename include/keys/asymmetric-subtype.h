@@ -18,6 +18,7 @@
 #include <keys/asymmetric-type.h>
 
 struct public_key_signature;
+enum key_being_used_for;
 
 /*
  * Keys of this type declare a subtype that indicates the handlers and
@@ -31,12 +32,16 @@ struct asymmetric_key_subtype {
 	/* Describe a key of this subtype for /proc/keys */
 	void (*describe)(const struct key *key, struct seq_file *m);
 
+	/* Describe capabilities/restrictions of a key of this subtype */
+	void (*describe_caps)(const struct key *key, struct seq_file *m);
+
 	/* Destroy a key of this subtype */
 	void (*destroy)(void *payload);
 
 	/* Verify the signature on a key of this subtype (optional) */
 	int (*verify_signature)(const struct key *key,
-				const struct public_key_signature *sig);
+				const struct public_key_signature *sig,
+				enum key_being_used_for usage);
 };
 
 /**

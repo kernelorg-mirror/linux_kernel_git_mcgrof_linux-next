@@ -9,6 +9,8 @@
  * 2 of the Licence, or (at your option) any later version.
  */
 
+#include <crypto/public_key.h>
+
 struct key;
 struct pkcs7_message;
 
@@ -22,15 +24,21 @@ extern void pkcs7_free_message(struct pkcs7_message *pkcs7);
 extern int pkcs7_get_content_data(const struct pkcs7_message *pkcs7,
 				  const void **_data, size_t *_datalen,
 				  bool want_wrapper);
+extern const char *pkcs7_get_firmware_name(const struct pkcs7_message *pkcs7);
 
 /*
  * pkcs7_trust.c
  */
 extern int pkcs7_validate_trust(struct pkcs7_message *pkcs7,
 				struct key *trust_keyring,
+				enum key_being_used_for usage,
 				bool *_trusted);
 
 /*
  * pkcs7_verify.c
  */
-extern int pkcs7_verify(struct pkcs7_message *pkcs7);
+extern int pkcs7_verify(struct pkcs7_message *pkcs7,
+			enum key_being_used_for usage);
+
+extern int pkcs7_supply_detached_data(struct pkcs7_message *pkcs7,
+				      const void *data, size_t datalen);

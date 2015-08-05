@@ -33,10 +33,39 @@ extern const struct public_key_algorithm *pkey_algo[PKEY_ALGO__LAST];
 enum pkey_id_type {
 	PKEY_ID_PGP,		/* OpenPGP generated key ID */
 	PKEY_ID_X509,		/* X.509 arbitrary subjectKeyIdentifier */
+	PKEY_ID_PKCS7,		/* Signature in PKCS#7 message */
 	PKEY_ID_TYPE__LAST
 };
 
 extern const char *const pkey_id_type_name[PKEY_ID_TYPE__LAST];
+
+/*
+ * The use to which an asymmetric key is restricted.
+ */
+enum key_usage_restriction {
+	KEY_USAGE_NOT_SPECIFIED,
+	KEY_RESTRICTED_USAGE,
+	KEY_RESTRICTED_TO_OTHER,
+	KEY_RESTRICTED_TO_MODULE_SIGNING,
+	KEY_RESTRICTED_TO_FIRMWARE_SIGNING,
+	KEY_RESTRICTED_TO_KEXEC_SIGNING,
+	KEY_RESTRICTED_TO_KEY_SIGNING,
+	NR__KEY_USAGE_RESTRICTIONS
+};
+
+/*
+ * The use to which an asymmetric key is being put when verifying a signature.
+ */
+enum key_being_used_for {
+	KEY_VERIFYING_MODULE_SIGNATURE,
+	KEY_VERIFYING_FIRMWARE_SIGNATURE,
+	KEY_VERIFYING_KEXEC_SIGNATURE,
+	KEY_VERIFYING_KEY_SIGNATURE,
+	KEY_VERIFYING_KEY_SELF_SIGNATURE,
+	KEY_VERIFYING_INTEGRITY_SIGNATURE,
+	NR__KEY_BEING_USED_FOR
+};
+extern const char *const key_being_used_for[NR__KEY_BEING_USED_FOR];
 
 /*
  * Cryptographic data for the public-key subtype of the asymmetric key type.
@@ -51,6 +80,7 @@ struct public_key {
 #define PKEY_CAN_DECRYPT	0x02
 #define PKEY_CAN_SIGN		0x04
 #define PKEY_CAN_VERIFY		0x08
+	enum key_usage_restriction usage_restriction : 8;
 	enum pkey_algo pkey_algo : 8;
 	enum pkey_id_type id_type : 8;
 	union {
@@ -97,11 +127,13 @@ struct public_key_signature {
 
 struct key;
 extern int verify_signature(const struct key *key,
-			    const struct public_key_signature *sig);
+			    const struct public_key_signature *sig,
+			    enum key_being_used_for usage);
 
 struct asymmetric_key_id;
 extern struct key *x509_request_asymmetric_key(struct key *keyring,
-					       const struct asymmetric_key_id *kid,
+					       const struct asymmetric_key_id *id,
+					       const struct asymmetric_key_id *skid,
 					       bool partial);
 
 #endif /* _LINUX_PUBLIC_KEY_H */

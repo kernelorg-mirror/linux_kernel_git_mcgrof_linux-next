@@ -15,9 +15,12 @@
 #include <linux/slab.h>
 #include <linux/err.h>
 #include <linux/oid_registry.h>
+#include <linux/bitrev.h>
 #include "public_key.h"
 #include "x509_parser.h"
 #include "x509-asn1.h"
+#include "x509_akid-asn1.h"
+#include "x509_extusage-asn1.h"
 #include "x509_rsakey-asn1.h"
 
 struct x509_parse_context {
@@ -35,6 +38,12 @@ struct x509_parse_context {
 	u16		o_offset;		/* Offset of organizationName (O) */
 	u16		cn_offset;		/* Offset of commonName (CN) */
 	u16		email_offset;		/* Offset of emailAddress */
+	unsigned	raw_akid_size;
+	const void	*raw_akid;		/* Raw authorityKeyId in ASN.1 */
+	const void	*akid_raw_issuer;	/* Raw directoryName in authorityKeyId */
+	unsigned	akid_raw_issuer_size;
+	unsigned	raw_extusage_size;
+	const void	*raw_extusage;		/* Raw extKeyUsage in ASN.1 */
 };
 
 /*
@@ -48,7 +57,8 @@ void x509_free_certificate(struct x509_certificate *cert)
 		kfree(cert->subject);
 		kfree(cert->id);
 		kfree(cert->skid);
-		kfree(cert->authority);
+		kfree(cert->akid_id);
+		kfree(cert->akid_skid);
 		kfree(cert->sig.digest);
 		mpi_free(cert->sig.rsa.s);
 		kfree(cert);
@@ -84,6 +94,32 @@ struct x509_certificate *x509_cert_parse(const void *data, size_t datalen)
 	ret = asn1_ber_decoder(&x509_decoder, ctx, data, datalen);
 	if (ret < 0)
 		goto error_decode;
+
+	/* Decode the extended key usage information */
+	if (ctx->raw_extusage) {
+		pr_devel("EXTUSAGE: %u %*phN\n",
+			 ctx->raw_extusage_size, ctx->raw_extusage_size,
+			 ctx->raw_extusage);
+		ret = asn1_ber_decoder(&x509_extusage_decoder, ctx,
+				       ctx->raw_extusage,
+				       ctx->raw_extusage_size);
+		if (ret < 0) {
+			pr_warn("Couldn't decode extKeyUsage\n");
+			goto error_decode;
+		}
+	}
+
+	/* Decode the AuthorityKeyIdentifier */
+	if (ctx->raw_akid) {
+		pr_devel("AKID: %u %*phN\n",
+			 ctx->raw_akid_size, ctx->raw_akid_size, ctx->raw_akid);
+		ret = asn1_ber_decoder(&x509_akid_decoder, ctx,
+				       ctx->raw_akid, ctx->raw_akid_size);
+		if (ret < 0) {
+			pr_warn("Couldn't decode AuthKeyIdentifier\n");
+			goto error_decode;
+		}
+	}
 
 	/* Decode the public key */
 	ret = asn1_ber_decoder(&x509_rsakey_decoder, ctx,
@@ -422,9 +458,43 @@ int x509_process_extension(void *context, size_t hdrlen,
 	struct x509_parse_context *ctx = context;
 	struct asymmetric_key_id *kid;
 	const unsigned char *v = value;
-	int i;
+	u32 nr_unused_bits, tmp;
 
 	pr_debug("Extension: %u\n", ctx->last_oid);
+
+	if (ctx->last_oid == OID_keyUsage) {
+		/* There's a bitstring inside the content that we want to get
+		 * at.  In the content of the bitstring, the first octet says
+		 * how many of the trailing bits are relevant.  Logical bits
+		 * 0-7 are in octet 1, bits 7-0 (note the inversion); 8-15 are
+		 * in octet 2, bits 7-0.
+		 *
+		 * [X.680 22.4, X.690 6.2 and X.690 8.6.2.1]
+		 */
+		if (vlen < 3)
+			return -EBADMSG;
+		if (v[0] != ASN1_BTS || v[1] != vlen - 2)
+			return -EBADMSG;
+		nr_unused_bits = v[2];
+		if (nr_unused_bits > 7)
+			return -EBADMSG;
+		vlen -= 3;
+		v += 3;
+		if (vlen == 0)
+			return 0;
+
+		tmp = v[0];
+		if (vlen == 1 && nr_unused_bits > 0)
+			tmp &= ~((1 << nr_unused_bits) - 1);
+		tmp = bitrev8(tmp);
+		pr_debug("keyUsage %x\n", tmp);
+
+		/* check for keyCertSign */
+		if (tmp & (1 << 5))
+			ctx->cert->pub->usage_restriction =
+				KEY_RESTRICTED_TO_KEY_SIGNING;
+		return 0;
+	}
 
 	if (ctx->last_oid == OID_subjectKeyIdentifier) {
 		/* Get hold of the key fingerprint */
@@ -437,9 +507,7 @@ int x509_process_extension(void *context, size_t hdrlen,
 
 		ctx->cert->raw_skid_size = vlen;
 		ctx->cert->raw_skid = v;
-		kid = asymmetric_key_generate_id(ctx->cert->raw_subject,
-						 ctx->cert->raw_subject_size,
-						 v, vlen);
+		kid = asymmetric_key_generate_id(v, vlen, "", 0);
 		if (IS_ERR(kid))
 			return PTR_ERR(kid);
 		ctx->cert->skid = kid;
@@ -449,57 +517,17 @@ int x509_process_extension(void *context, size_t hdrlen,
 
 	if (ctx->last_oid == OID_authorityKeyIdentifier) {
 		/* Get hold of the CA key fingerprint */
-		if (ctx->cert->authority || vlen < 5)
-			return -EBADMSG;
+		ctx->raw_akid = v;
+		ctx->raw_akid_size = vlen;
+		return 0;
+	}
 
-		/* Authority Key Identifier must be a Constructed SEQUENCE */
-		if (v[0] != (ASN1_SEQ | (ASN1_CONS << 5)))
-			return -EBADMSG;
-
-		/* Authority Key Identifier is not indefinite length */
-		if (unlikely(vlen == ASN1_INDEFINITE_LENGTH))
-			return -EBADMSG;
-
-		if (vlen < ASN1_INDEFINITE_LENGTH) {
-			/* Short Form length */
-			if (v[1] != vlen - 2 ||
-			    v[2] != SEQ_TAG_KEYID ||
-			    v[3] > vlen - 4)
-				return -EBADMSG;
-
-			vlen = v[3];
-			v += 4;
-		} else {
-			/* Long Form length */
-			size_t seq_len = 0;
-			size_t sub = v[1] - ASN1_INDEFINITE_LENGTH;
-
-			if (sub > 2)
-				return -EBADMSG;
-
-			/* calculate the length from subsequent octets */
-			v += 2;
-			for (i = 0; i < sub; i++) {
-				seq_len <<= 8;
-				seq_len |= v[i];
-			}
-
-			if (seq_len != vlen - 2 - sub ||
-			    v[sub] != SEQ_TAG_KEYID ||
-			    v[sub + 1] > vlen - 4 - sub)
-				return -EBADMSG;
-
-			vlen = v[sub + 1];
-			v += (sub + 2);
-		}
-
-		kid = asymmetric_key_generate_id(ctx->cert->raw_issuer,
-						 ctx->cert->raw_issuer_size,
-						 v, vlen);
-		if (IS_ERR(kid))
-			return PTR_ERR(kid);
-		pr_debug("authkeyid %*phN\n", kid->len, kid->data);
-		ctx->cert->authority = kid;
+	if (ctx->last_oid == OID_extKeyUsage) {
+		/* Get hold of the extended key usage information */
+		ctx->raw_extusage = v;
+		ctx->raw_extusage_size = vlen;
+		if (ctx->cert->pub->usage_restriction == KEY_USAGE_NOT_SPECIFIED)
+			ctx->cert->pub->usage_restriction = KEY_RESTRICTED_USAGE;
 		return 0;
 	}
 
@@ -568,4 +596,117 @@ int x509_note_not_after(void *context, size_t hdrlen,
 {
 	struct x509_parse_context *ctx = context;
 	return x509_note_time(&ctx->cert->valid_to, hdrlen, tag, value, vlen);
+}
+
+/*
+ * Note a key identifier-based AuthorityKeyIdentifier
+ */
+int x509_akid_note_kid(void *context, size_t hdrlen,
+		       unsigned char tag,
+		       const void *value, size_t vlen)
+{
+	struct x509_parse_context *ctx = context;
+	struct asymmetric_key_id *kid;
+
+	pr_debug("AKID: keyid: %*phN\n", (int)vlen, value);
+
+	if (ctx->cert->akid_skid)
+		return 0;
+
+	kid = asymmetric_key_generate_id(value, vlen, "", 0);
+	if (IS_ERR(kid))
+		return PTR_ERR(kid);
+	pr_debug("authkeyid %*phN\n", kid->len, kid->data);
+	ctx->cert->akid_skid = kid;
+	return 0;
+}
+
+/*
+ * Note a directoryName in an AuthorityKeyIdentifier
+ */
+int x509_akid_note_name(void *context, size_t hdrlen,
+			unsigned char tag,
+			const void *value, size_t vlen)
+{
+	struct x509_parse_context *ctx = context;
+
+	pr_debug("AKID: name: %*phN\n", (int)vlen, value);
+
+	ctx->akid_raw_issuer = value;
+	ctx->akid_raw_issuer_size = vlen;
+	return 0;
+}
+
+/*
+ * Note a serial number in an AuthorityKeyIdentifier
+ */
+int x509_akid_note_serial(void *context, size_t hdrlen,
+			  unsigned char tag,
+			  const void *value, size_t vlen)
+{
+	struct x509_parse_context *ctx = context;
+	struct asymmetric_key_id *kid;
+
+	pr_debug("AKID: serial: %*phN\n", (int)vlen, value);
+
+	if (!ctx->akid_raw_issuer || ctx->cert->akid_id)
+		return 0;
+
+	kid = asymmetric_key_generate_id(value,
+					 vlen,
+					 ctx->akid_raw_issuer,
+					 ctx->akid_raw_issuer_size);
+	if (IS_ERR(kid))
+		return PTR_ERR(kid);
+
+	pr_debug("authkeyid %*phN\n", kid->len, kid->data);
+	ctx->cert->akid_id = kid;
+	return 0;
+}
+
+/*
+ * Note restriction to a purpose
+ */
+int x509_extusage_note_purpose(void *context, size_t hdrlen,
+			       unsigned char tag,
+			       const void *value, size_t vlen)
+{
+	struct x509_parse_context *ctx = context;
+	enum key_usage_restriction restriction;
+	char buffer[50];
+	enum OID oid;
+
+	sprint_oid(value, vlen, buffer, sizeof(buffer));
+	pr_debug("ExtUsage: %s\n", buffer);
+
+	oid = look_up_OID(value, vlen);
+	if (oid == OID__NR) {
+		pr_debug("Unknown extension: [%lu] %s\n",
+			 (unsigned long)value - ctx->data, buffer);
+		return 0;
+	}
+
+	switch (oid) {
+	case OID_firmwareSigningOnlyKey:
+		restriction = KEY_RESTRICTED_TO_FIRMWARE_SIGNING;
+		break;
+	case OID_moduleSigningOnlyKey:
+		restriction = KEY_RESTRICTED_TO_MODULE_SIGNING;
+		break;
+	case OID_kexecSigningOnlyKey:
+		restriction = KEY_RESTRICTED_TO_KEXEC_SIGNING;
+		break;
+	default:
+		restriction = KEY_RESTRICTED_TO_OTHER;
+		break;
+	}
+
+	if (ctx->cert->pub->usage_restriction != KEY_RESTRICTED_USAGE) {
+		pr_warn("Rejecting certificate with multiple restrictions\n");
+		return -EKEYREJECTED;
+	}
+
+	ctx->cert->pub->usage_restriction = restriction;
+	pr_debug("usage restriction %u\n", restriction);
+	return 0;
 }
