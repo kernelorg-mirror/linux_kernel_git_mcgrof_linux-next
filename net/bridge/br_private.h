@@ -148,6 +148,7 @@ struct net_bridge_port
 	u8				priority;
 	u8				state;
 	u16				port_no;
+	bool				root_block_enabled;
 	unsigned char			topology_change_ack;
 	unsigned char			config_pending;
 	port_id				port_id;

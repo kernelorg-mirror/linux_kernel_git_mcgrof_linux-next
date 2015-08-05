@@ -244,10 +244,11 @@ bool br_stp_recalculate_bridge_id(struct net_bridge *br)
 		return false;
 
 	list_for_each_entry(p, &br->port_list, list) {
+		if (p->flags & BR_ROOT_BLOCK)
+			continue;
 		if (addr == br_mac_zero ||
 		    memcmp(p->dev->dev_addr, addr, ETH_ALEN) < 0)
 			addr = p->dev->dev_addr;
-
 	}
 
 	if (ether_addr_equal(br->bridge_id.addr, addr))

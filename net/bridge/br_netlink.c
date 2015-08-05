@@ -542,6 +542,21 @@ static void br_set_port_flag(struct net_bridge_port *p, struct nlattr *tb[],
 	}
 }
 
+static void br_kick_bridge_port(struct net_bridge_port *p)
+{
+	struct net_bridge *br = p->br;
+	bool wasroot;
+
+	wasroot = br_is_root_bridge(br);
+	br_become_designated_port(p);
+
+	br_configuration_update(br);
+	br_port_state_selection(br);
+
+	if (br_is_root_bridge(br) && !wasroot)
+		br_become_root_bridge(br);
+}
+
 /* Process bridge protocol info on port */
 static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
 {
@@ -576,6 +591,8 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
 	}
 
 	br_port_flags_change(p, old_flags ^ p->flags);
+	br_kick_bridge_port(p);
+
 	return 0;
 }
 

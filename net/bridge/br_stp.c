@@ -75,6 +75,7 @@ static int br_should_become_root_port(const struct net_bridge_port *p,
 
 	br = p->br;
 	if (p->state == BR_STATE_DISABLED ||
+	   (p->flags & BR_ROOT_BLOCK) ||
 	    br_is_designated_port(p))
 		return 0;
 
@@ -120,7 +121,7 @@ static void br_root_port_block(const struct net_bridge *br,
 			       struct net_bridge_port *p)
 {
 
-	br_notice(br, "port %u(%s) tried to become root port (blocked)",
+	br_notice(br, "port %u (%s) is now root blocked",
 		  (unsigned int) p->port_no, p->dev->name);
 
 	br_set_state(p, BR_STATE_LISTENING);
@@ -140,11 +141,7 @@ static void br_root_selection(struct net_bridge *br)
 	list_for_each_entry(p, &br->port_list, list) {
 		if (!br_should_become_root_port(p, root_port))
 			continue;
-
-		if (p->flags & BR_ROOT_BLOCK)
-			br_root_port_block(br, p);
-		else
-			root_port = p->port_no;
+		root_port = p->port_no;
 	}
 
 	br->root_port = root_port;
@@ -375,10 +372,74 @@ static void br_reply(struct net_bridge_port *p)
 	br_transmit_config(p);
 }
 
+static bool br_root_port_block_check(struct net_bridge_port *p)
+{
+	bool designated = false;
+
+	if (p->root_block_enabled &&
+	    !(p->flags & BR_ROOT_BLOCK)) {
+		br_notice(p->br, "port %u (%s) is root block toggled off",
+			  (unsigned int) p->port_no, p->dev->name);
+		return false;
+	}
+
+	if (p->flags & BR_ROOT_BLOCK &&
+	    (p->root_block_enabled))
+		return false;
+
+	if (!(p->flags & BR_ROOT_BLOCK))
+		return false;
+
+	if (br_is_designated_port(p)) {
+		designated = true;
+		p->flags = BR_ROOT_BLOCK |
+			   BR_LEARNING |
+			   BR_FLOOD;
+		p->priority = 0x8000 >> BR_PORT_BITS;
+		br_init_port(p);
+	}
+
+	br_root_port_block(p->br, p);
+	p->root_block_enabled = true;
+
+	return designated;
+}
+
+/* Updates block ports as required and returns true if one was designated */
+static bool br_update_block_ports(struct net_bridge *br)
+{
+	struct net_bridge_port *p;
+	bool designated = false;
+
+	list_for_each_entry(p, &br->port_list, list) {
+		designated = br_root_port_block_check(p);
+		if (designated)
+			return designated;
+	}
+
+	return false;
+}
+
+static void br_update_designated_port(struct net_bridge *br)
+{
+	struct net_bridge_port *p;
+
+	list_for_each_entry(p, &br->port_list, list)
+		br_become_designated_port(p);
+}
+
 /* called under bridge lock */
 void br_configuration_update(struct net_bridge *br)
 {
+	bool designated_was_blocked = false;
+
+	designated_was_blocked = br_update_block_ports(br);
+
 	br_root_selection(br);
+
+	if (designated_was_blocked)
+		br_update_designated_port(br);
+
 	br_designated_port_selection(br);
 }
 
