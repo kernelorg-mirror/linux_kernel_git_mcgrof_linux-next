@@ -5201,6 +5201,18 @@ S:	Maintained
 F:	include/asm-generic/
 F:	include/uapi/asm-generic/
 
+GENERIC LINKER TABLES
+M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
+M:	"H. Peter Anvin" <hpa@zytor.com>
+L:	linux-arch@vger.kernel.org
+L:	linux-kernel@vger.kernel.org
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/linux.git sections
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/linux-next.git sections
+S:	Supported
+F:	include/asm-generic/tables.h
+F:	include/linux/tables.h
+F:	Documentation/sections/linker-tables.rst
+
 GENERIC PHY FRAMEWORK
 M:	Kishon Vijay Abraham I <kishon@ti.com>
 L:	linux-kernel@vger.kernel.org
