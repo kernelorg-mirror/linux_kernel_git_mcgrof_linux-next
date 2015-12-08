@@ -16,3 +16,4 @@ common a set of Linux helpers for ELF sections are also documented.
    background
    section-core
    ranges
+   linker-tables
