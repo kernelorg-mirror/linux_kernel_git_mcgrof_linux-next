@@ -57,6 +57,7 @@
 #include <linux/export.h>
 #include <asm/section-core.h>
 #include <asm/ranges.h>
+#include <asm/tables.h>
 
 /* Align . to a 8 byte boundary equals to maximum function alignment. */
 #define ALIGN_FUNCTION()  . = ALIGN(8)
@@ -202,6 +203,7 @@
 #define DATA_DATA							\
 	*(SECTION_DATA)							\
 	*(SORT(SECTION_RNG_ALL(SECTION_DATA)))				\
+	*(SORT(SECTION_TBL_ALL(SECTION_DATA)))				\
 	*(SECTION_REF_DATA)						\
 	*(.data..shared_aligned) /* percpu related */			\
 	MEM_KEEP(init.data)						\
@@ -269,6 +271,7 @@
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
 		*(SECTION_RODATA)					\
 		*(SORT(SECTION_RNG_ALL(SECTION_RODATA)))		\
+		*(SORT(SECTION_TBL_ALL(SECTION_RODATA)))		\
 		*(SECTION_ALL(SECTION_RODATA))				\
 		RO_AFTER_INIT_DATA	/* Read only after init */	\
 		*(__vermagic)		/* Kernel version magic */	\
@@ -439,6 +442,7 @@
 		ALIGN_FUNCTION();					\
 		*(.text.hot SECTION_TEXT)				\
 		*(SORT(SECTION_RNG_ALL(SECTION_TEXT)))			\
+		*(SORT(SECTION_TBL_ALL(SECTION_TEXT)))			\
 		*(.text.fixup .text.unlikely)				\
 		*(SECTION_REF)						\
 	MEM_KEEP(init.text)						\
@@ -536,6 +540,7 @@
 #define INIT_DATA							\
 	*(SECTION_INIT_DATA)						\
 	*(SORT(SECTION_RNG_ALL(SECTION_INIT_DATA)))			\
+	*(SORT(SECTION_TBL_ALL(SECTION_INIT_DATA)))			\
 	MEM_DISCARD(init.data)						\
 	KERNEL_CTORS()							\
 	MCOUNT_REC()							\
@@ -559,6 +564,7 @@
 #define INIT_TEXT							\
 	*(SECTION_INIT)							\
 	*(SORT(SECTION_RNG_ALL(SECTION_INIT)))				\
+	*(SORT(SECTION_TBL_ALL(SECTION_INIT)))				\
 	*(.text.startup)						\
 	MEM_DISCARD(init.text)
 
