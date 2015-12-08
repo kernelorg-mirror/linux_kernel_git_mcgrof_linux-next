@@ -43,3 +43,4 @@ generated-y += mach-types.h
 generated-y += unistd-nr.h
 generic-y += section-core.h
 generic-y += ranges.h
+generic-y += tables.h

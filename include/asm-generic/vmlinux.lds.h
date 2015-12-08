@@ -57,6 +57,7 @@
 #include <linux/export.h>
 #include <asm/section-core.h>
 #include <asm/ranges.h>
+#include <asm/tables.h>
 
 /* Align . to a 8 byte boundary equals to maximum function alignment. */
 #define ALIGN_FUNCTION()  . = ALIGN(8)
@@ -207,6 +208,7 @@
 #define DATA_DATA							\
 	*(.data)							\
 	*(SORT(.data.rng.*))						\
+	*(SORT(.data.tbl.*))						\
 	*(.data.[0-9a-zA-Z_]*)						\
 	*(.ref.data)							\
 	*(.data..shared_aligned) /* percpu related */			\
@@ -278,6 +280,7 @@
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
 		*(.rodata)						\
 		*(SORT(.rodata.rng.*))					\
+		*(SORT(.rodata.tbl.*))					\
 		*(.rodata.*)						\
 		RO_AFTER_INIT_DATA	/* Read only after init */	\
 		*(__vermagic)		/* Kernel version magic */	\
@@ -453,6 +456,7 @@
 		ALIGN_FUNCTION();					\
 		*(.text.hot .text)					\
 		*(SORT(.text.rng.*))					\
+		*(SORT(.text.tbl.*))					\
 		*(.text.fixup .text.unlikely)				\
 		*(.ref.text)						\
 	MEM_KEEP(init.text)						\
@@ -557,6 +561,7 @@
 	KEEP(*(SORT(___kentry+*)))					\
 	*(.init.data)							\
 	*(SORT(.init.data.rng.*))					\
+	*(SORT(.init.data.tbl.*))					\
 	MEM_DISCARD(init.data)						\
 	KERNEL_CTORS()							\
 	MCOUNT_REC()							\
@@ -580,6 +585,7 @@
 #define INIT_TEXT							\
 	*(.init.text)							\
 	*(SORT(.init.text.rng.*))					\
+	*(SORT(.init.text.tbl.*))					\
 	*(.text.startup)						\
 	MEM_DISCARD(init.text)
 
