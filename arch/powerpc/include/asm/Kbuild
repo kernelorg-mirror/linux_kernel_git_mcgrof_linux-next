@@ -9,3 +9,4 @@ generic-y += rwsem.h
 generic-y += vtime.h
 generic-y += section-core.h
 generic-y += ranges.h
+generic-y += tables.h
