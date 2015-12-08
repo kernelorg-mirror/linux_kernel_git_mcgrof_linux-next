@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE set PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+	"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" []>
+<set>
+  <setinfo>
+    <title>Linux linker tables</title>
+    <subtitle>
+      Explains Linux's linker tables work.
+    </subtitle>
+
+    <copyright>
+      <year>2016</year>
+      <holder>Luis R. Rodriguez</holder>
+    </copyright>
+
+    <authorgroup>
+      <author>
+        <firstname>Luis</firstname>
+        <surname>Rodriguez</surname>
+        <affiliation>
+          <address><email>mcgrof@kernel.org</email></address>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <legalnotice>
+      <para>
+        This program is free software; you can redistribute it and/or modify it
+        under the terms of copyleft-next (version 0.3.1 or later) as published
+        at http://copyleft-next.org/.
+      </para>
+    </legalnotice>
+
+    <abstract>
+      <para>
+        This book documents the Linux use of linker tables, how you can
+        use them and how they work.
+      </para>
+    </abstract>
+  </setinfo>
+  <book id="linux-linker-tables">
+    <bookinfo>
+      <title>Linux linker tables</title>
+
+      <abstract>
+!Pinclude/linux/tables.h Introduction
+      </abstract>
+    </bookinfo>
+
+      <chapter>
+      <title>About Linker tables</title>
+
+	<sect1>
+	<title>Linker table provenance and userspace testing</title>
+!Pinclude/linux/tables.h Linker table provenance and userspace testing
+	</sect1>
+
+	<sect1>
+	<title>The code bit-rot problem</title>
+!Pinclude/linux/tables.h The code bit-rot problem
+	</sect1>
+
+	<sect1>
+	<title>Avoiding the code bit-rot problem when desirable</title>
+!Pinclude/linux/tables.h Avoiding the code bit-rot problem when desirable
+	</sect1>
+      </chapter>
+
+      <chapter>
+      <title>Using linker tables in Linux</title>
+
+	<sect1>
+      <title>Using target table-y and table-n</title>
+!Pinclude/linux/tables.h Using target table-y and table-n
+	</sect1>
+
+	<sect1>
+      <title>Linker table module support</title>
+!Pinclude/linux/tables.h Linker table module support
+	</sect1>
+
+	<sect1>
+	<title>Opting out of forcing compilation</title>
+!Pinclude/linux/tables.h Opting out of forcing compilation
+	</sect1>
+
+	<sect1>
+	<title>How linker tables simplify inits</title>
+!Pinclude/linux/tables.h How linker tables simplify inits
+	</sect1>
+
+      </chapter>
+
+      <chapter>
+      <title>Linker table helpers</title>
+!Pinclude/linux/tables.h Linker table helpers
+!Finclude/linux/tables.h LINKTABLE_ADDR_WITHIN
+      </chapter>
+
+      <chapter>
+      <title>Constructing Linker tables</title>
+!Pinclude/linux/tables.h Constructing linker tables
+
+	<sect1>
+	<title>Weak linker tables constructors</title>
+!Pinclude/linux/tables.h Weak linker tables constructors
+!Finclude/linux/tables.h LINKTABLE_WEAK
+!Finclude/linux/tables.h LINKTABLE_TEXT_WEAK
+!Finclude/linux/tables.h LINKTABLE_DATA_WEAK
+!Finclude/linux/tables.h LINKTABLE_RO_WEAK
+!Finclude/linux/tables.h LINKTABLE_INIT_WEAK
+!Finclude/linux/tables.h LINKTABLE_INIT_DATA_WEAK
+	</sect1>
+
+	<sect1>
+	<title>Regular linker linker table constructors</title>
+!Pinclude/linux/tables.h Regular linker linker table constructors
+!Finclude/linux/tables.h LINKTABLE_TEXT
+!Finclude/linux/tables.h LINKTABLE_DATA
+!Finclude/linux/tables.h LINKTABLE_RO
+!Finclude/linux/tables.h LINKTABLE_INIT
+!Finclude/linux/tables.h LINKTABLE_INIT_DATA
+	</sect1>
+      </chapter>
+
+      <chapter>
+      <title>Declaring Linker tables</title>
+!Pinclude/linux/tables.h Declaring Linker tables
+!Finclude/linux/tables.h DECLARE_LINKTABLE_TEXT
+!Finclude/linux/tables.h DECLARE_LINKTABLE_DATA
+!Finclude/linux/tables.h DECLARE_LINKTABLE_RO
+!Finclude/linux/tables.h DECLARE_LINKTABLE_INIT
+!Finclude/linux/tables.h DECLARE_LINKTABLE_INIT_DATA
+      </chapter>
+
+      <chapter>
+      <title>Defining Linker tables</title>
+!Pinclude/linux/tables.h Defining Linker tables
+!Finclude/linux/tables.h DEFINE_LINKTABLE_TEXT
+!Finclude/linux/tables.h DEFINE_LINKTABLE_DATA
+!Finclude/linux/tables.h DEFINE_LINKTABLE_RO
+!Finclude/linux/tables.h DEFINE_LINKTABLE_INIT
+!Finclude/linux/tables.h DEFINE_LINKTABLE_INIT_DATA
+      </chapter>
+
+      <chapter>
+      <title>Iterating over Linker tables</title>
+!Pinclude/linux/tables.h Iterating over Linker tables
+!Finclude/linux/tables.h LINKTABLE_FOR_EACH
+!Finclude/linux/tables.h LINKTABLE_RUN_ALL
+!Finclude/linux/tables.h LINKTABLE_RUN_ERR
+      </chapter>
+
+  </book>
+</set>
