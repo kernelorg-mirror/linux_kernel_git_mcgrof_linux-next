@@ -67,3 +67,4 @@ generic-y += xor.h
 generic-y += kprobes.h
 generic-y += section-core.h
 generic-y += ranges.h
+generic-y += tables.h
