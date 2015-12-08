@@ -86,4 +86,18 @@
 
 #endif /* __ASSEMBLY__ */
 
+#ifdef __ASSEMBLER__
+
+#ifndef DEFINE_SECTION_RANGE
+#define DEFINE_SECTION_RANGE(section, name)				\
+  push_section_rng_level(section, name,,) ;					\
+  .globl name ;								\
+name: ;									\
+  .popsection								\
+									\
+  push_section_rng_level(section, name, ~,) ;					\
+  .popsection
+#endif
+#endif /* __ASSEMBLER__ */
+
 #endif /* _ASM_GENERIC_RANGES_H_ */
