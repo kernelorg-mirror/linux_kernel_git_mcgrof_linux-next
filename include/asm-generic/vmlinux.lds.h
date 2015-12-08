@@ -56,6 +56,7 @@
 
 #include <linux/export.h>
 #include <asm/sections.h>
+#include <asm/tables.h>
 
 /* Align . to a 8 byte boundary equals to maximum function alignment. */
 #define ALIGN_FUNCTION()  . = ALIGN(8)
@@ -200,6 +201,7 @@
 /* .data section */
 #define DATA_DATA							\
 	*(SECTION_DATA)							\
+	*(SORT(SECTION_TBL_ALL(SECTION_DATA)))				\
 	*(SECTION_REF_DATA)						\
 	*(.data..shared_aligned) /* percpu related */			\
 	MEM_KEEP(init.data)						\
@@ -266,6 +268,7 @@
 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
 		*(SECTION_RODATA) *(.rodata.*)				\
+		*(SORT(SECTION_TBL_ALL(SECTION_RODATA)))		\
 		RO_AFTER_INIT_DATA	/* Read only after init */	\
 		*(__vermagic)		/* Kernel version magic */	\
 		. = ALIGN(8);						\
@@ -434,6 +437,7 @@
 #define TEXT_TEXT							\
 		ALIGN_FUNCTION();					\
 		*(.text.hot SECTION_TEXT .text.fixup .text.unlikely)	\
+		*(SORT(SECTION_TBL_ALL(SECTION_TEXT)))			\
 		*(SECTION_REF)						\
 	MEM_KEEP(init.text)						\
 	MEM_KEEP(exit.text)						\
@@ -529,6 +533,7 @@
 /* init and exit section handling */
 #define INIT_DATA							\
 	*(SECTION_INIT_DATA)						\
+	*(SORT(SECTION_TBL_ALL(SECTION_INIT_DATA)))			\
 	MEM_DISCARD(init.data)						\
 	KERNEL_CTORS()							\
 	MCOUNT_REC()							\
@@ -551,6 +556,7 @@
 
 #define INIT_TEXT							\
 	*(SECTION_INIT)							\
+	*(SORT(SECTION_TBL_ALL(SECTION_INIT)))				\
 	MEM_DISCARD(init.text)
 
 #define EXIT_DATA							\
