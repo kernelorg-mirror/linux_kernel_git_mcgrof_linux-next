@@ -23,3 +23,4 @@ generic-y += types.h
 generic-y += word-at-a-time.h
 generic-y += section-core.h
 generic-y += ranges.h
+generic-y += tables.h
