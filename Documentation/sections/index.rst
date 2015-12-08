@@ -10,3 +10,4 @@ used throughout the kernel to help declare and define them.
 
    section-core
    ranges
+   linker-tables

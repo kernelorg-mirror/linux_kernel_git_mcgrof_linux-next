@@ -41,3 +41,4 @@ generic-y += ucontext.h
 generic-y += xor.h
 generic-y += section-core.h
 generic-y += ranges.h
+generic-y += tables.h
