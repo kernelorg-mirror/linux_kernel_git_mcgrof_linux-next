@@ -3,6 +3,7 @@
 
 #include <asm/pgtable_types.h>
 #include <asm/bootparam.h>
+#include <asm/x86_init_fn.h>
 
 struct mpc_bus;
 struct mpc_cpu;
