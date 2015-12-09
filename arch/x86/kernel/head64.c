@@ -28,6 +28,7 @@
 #include <asm/bootparam_utils.h>
 #include <asm/microcode.h>
 #include <asm/kasan.h>
+#include <asm/x86_init.h>
 
 /*
  * Manage page tables very early on.
@@ -183,6 +184,8 @@ void __init x86_64_start_reservations(char *real_mode_data)
 		copy_bootdata(__va(real_mode_data));
 
 	x86_early_init_platform_quirks();
+	x86_init_fn_early_init();
+
 	reserve_ebda_region();
 
 	switch (boot_params.hdr.hardware_subarch) {
