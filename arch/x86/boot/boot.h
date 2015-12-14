@@ -23,9 +23,9 @@
 #include <stdarg.h>
 #include <linux/types.h>
 #include <linux/edd.h>
+#include "bitops.h"
 #include <asm/boot.h>
 #include <asm/setup.h>
-#include "bitops.h"
 #include "ctype.h"
 #include "cpuflags.h"
 
