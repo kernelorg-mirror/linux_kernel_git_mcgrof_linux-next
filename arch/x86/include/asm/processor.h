@@ -470,7 +470,7 @@ static inline unsigned long current_top_of_stack(void)
 #include <asm/paravirt.h>
 #else
 #define __cpuid			native_cpuid
-#define paravirt_enabled()	false
+#define paravirt_legacy()	false
 #define paravirt_has(x) 	false
 
 static inline void load_sp0(struct tss_struct *tss,

@@ -14,14 +14,14 @@
 #include <linux/types.h>
 #include <linux/cpumask.h>
 
-static inline bool paravirt_enabled(void)
+static inline bool paravirt_legacy(void)
 {
-	return pv_info.paravirt_enabled;
+	return pv_info.supports_x86_legacy;
 }
 
 static inline bool paravirt_has_feature(unsigned int feature)
 {
-	WARN_ON_ONCE(!paravirt_enabled());
+	WARN_ON_ONCE(!paravirt_legacy());
 	return !!(pv_info.features & feature);
 }
 

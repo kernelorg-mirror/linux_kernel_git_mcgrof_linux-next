@@ -200,7 +200,7 @@ static __init int add_rtc_cmos(void)
 	}
 #endif
 
-	if (paravirt_enabled() && !paravirt_has(RTC))
+	if (paravirt_legacy() && !paravirt_has(RTC))
 		return -ENODEV;
 
 	platform_device_register(&rtc_device);

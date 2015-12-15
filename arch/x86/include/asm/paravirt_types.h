@@ -61,6 +61,37 @@ struct paravirt_callee_save {
 };
 
 /* general info */
+
+/**
+ * struct pv_info - paravirt hypervisor information
+ *
+ * @supports_x86_legacy: true if this hypervisor supports legacy x86
+ * 	paravirtualized guests.  The definition of legacy here adheres
+ * 	*loosely* to both the notion of legacy in the ACPI 5.2.9.3 "IA-PC Boot
+ * 	Architecture Flags" section and the PC 2001 "legacy free" concept [1]
+ * 	referred to in the PC System Design Guide [2] [3] on Chapter 3, Page 50
+ * 	[4].  Legacy x86 guests systems are guest systems which are not "legacy
+ * 	free" as per the PC 2001 definition, and in the ACPI sense could have
+ * 	any of the legacy ACPI IA-PC Boot architecture flags set. These are x86
+ * 	systems with any type of legacy peripherals or requirements.
+ *
+ *	Examples of some popular legacy peripherals:
+ *
+ *	  a) Floppy drive
+ *	  b) Legacy ports [1] such as such as parallel ports, PS/2 connectors,
+ *	     serial ports / RS-232, game ports Parallel ATA, and IEEE 1394
+ *	  c) ISA bus
+ *
+ *	Examples of features required to support such type of legacy guests
+ *	are the need for APM and a PNP BIOS.
+ *
+ * 	[0] http://www.acpi.info/DOWNLOADS/ACPIspec50.pdf
+ *	[1] https://en.wikipedia.org/wiki/Legacy-free_PC
+ *	[2] https://en.wikipedia.org/wiki/PC_System_Design_Guide
+ *	[3] http://tech-insider.org/windows/research/2000/1102.html
+ *	[4] http://tech-insider.org/windows/research/acrobat/001102/03sys-2001.pdf
+ *	[5] https://en.wikipedia.org/wiki/Legacy_port
+ */
 struct pv_info {
 	unsigned int kernel_rpl;
 	int shared_kernel_pmd;
@@ -69,8 +100,8 @@ struct pv_info {
 	u16 extra_user_64bit_cs;  /* __USER_CS if none */
 #endif
 
-	bool paravirt_enabled;
-	unsigned int features;	  /* valid only if paravirt_enabled is set */
+	bool supports_x86_legacy;
+	unsigned int features;	  /* valid only on pv x86 legacy systems */
 	const char *name;
 };
 
