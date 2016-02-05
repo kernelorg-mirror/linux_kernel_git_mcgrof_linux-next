@@ -290,7 +290,7 @@ static void __init paravirt_ops_setup(void)
 	 * features, and paravirt_enabled is about features that are
 	 * missing.
 	 */
-	pv_info.paravirt_enabled = 0;
+	pv_info.paravirt_enabled = false;
 
 	if (kvm_para_has_feature(KVM_FEATURE_NOP_IO_DELAY))
 		pv_cpu_ops.io_delay = kvm_io_delay;
