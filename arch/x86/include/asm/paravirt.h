@@ -21,7 +21,7 @@ static inline bool paravirt_enabled(void)
 
 static inline bool paravirt_has_feature(unsigned int feature)
 {
-	WARN_ON_ONCE(!pv_info.paravirt_enabled);
+	WARN_ON_ONCE(!paravirt_enabled());
 	return !!(pv_info.features & feature);
 }
 
