@@ -72,6 +72,7 @@ needed).
    input/index
    gpu/index
    security/index
+   sections/index
    sound/index
    crypto/index
    filesystems/index

@@ -55,6 +55,7 @@
 #endif
 
 #include <linux/export.h>
+#include <asm/section-core.h>
 
 /* Align . to a 8 byte boundary equals to maximum function alignment. */
 #define ALIGN_FUNCTION()  . = ALIGN(8)
