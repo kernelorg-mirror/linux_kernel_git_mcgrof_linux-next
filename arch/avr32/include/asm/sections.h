@@ -1,0 +1,6 @@
+#ifndef _ASM_AVR32_SECTIONS_H
+#define _ASM_AVR32_SECTIONS_H
+
+#include <asm-generic/sections.h>
+
+#endif /* _ASM_AVR32_SECTIONS_H */
