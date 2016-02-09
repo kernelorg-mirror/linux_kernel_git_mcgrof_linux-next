@@ -2,6 +2,9 @@
 #define _ASM_X86_SECTIONS_H
 
 #include <asm-generic/sections.h>
+
+#ifndef __ASSEMBLER__
+#ifndef __ASSEMBLY__
 #include <asm/uaccess.h>
 
 extern char __brk_base[], __brk_limit[];
@@ -10,5 +13,8 @@ extern struct exception_table_entry __stop___ex_table[];
 #if defined(CONFIG_X86_64)
 extern char __end_rodata_hpage_align[];
 #endif
+
+#endif /* __ASSEMBLY__ */
+#endif /* __ASSEMBLER__ */
 
 #endif	/* _ASM_X86_SECTIONS_H */
