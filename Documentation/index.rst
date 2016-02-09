@@ -14,6 +14,7 @@ Contents:
    kernel-documentation
    media/index
    gpu/index
+   sections/index
 
 Indices and tables
 ==================
