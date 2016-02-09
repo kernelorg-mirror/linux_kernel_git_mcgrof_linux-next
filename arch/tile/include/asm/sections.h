@@ -15,9 +15,11 @@
 #ifndef _ASM_TILE_SECTIONS_H
 #define _ASM_TILE_SECTIONS_H
 
-#define arch_is_kernel_data arch_is_kernel_data
-
 #include <asm-generic/sections.h>
+
+#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+
+#define arch_is_kernel_data arch_is_kernel_data
 
 /* Write-once data is writable only till the end of initialization. */
 extern char __w1data_begin[], __w1data_end[];
@@ -43,5 +45,7 @@ static inline int arch_is_kernel_data(unsigned long addr)
 	return addr >= (unsigned long)_sdata &&
 		addr < (unsigned long)_end;
 }
+
+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 
 #endif /* _ASM_TILE_SECTIONS_H */
