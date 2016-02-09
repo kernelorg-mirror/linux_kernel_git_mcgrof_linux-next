@@ -1,6 +1,8 @@
 #ifndef _ASM_GENERIC_SECTIONS_H_
 #define _ASM_GENERIC_SECTIONS_H_
 
+#include <asm/section-core.h>
+
 /* References to section boundaries */
 
 #include <linux/compiler.h>

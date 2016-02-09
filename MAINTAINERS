@@ -5217,6 +5217,20 @@ S:	Supported
 F:	drivers/base/power/domain*.c
 F:	include/linux/pm_domain.h
 
+GENERIC SECTIONS
+M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
+M:	Josh Poimboeuf <jpoimboe@redhat.com>
+M:	"H. Peter Anvin" <hpa@zytor.com>
+L:	linux-arch@vger.kernel.org
+L:	linux-kernel@vger.kernel.org
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/linux.git for-arnd
+T:	git git://git.kernel.org/pub/scm/linux/kernel/git/mcgrof/linux-next.git for-arnd
+S:	Supported
+F:	include/asm-generic/section-core.h
+F:	include/asm-generic/sections.h
+F:	include/asm-generic/vmlinux.lds.h
+F:	Documentation/sections/section-core.rst
+
 GENERIC UIO DRIVER FOR PCI DEVICES
 M:	"Michael S. Tsirkin" <mst@redhat.com>
 L:	kvm@vger.kernel.org

@@ -20,3 +20,4 @@ generic-y += trace_clock.h
 generic-y += user.h
 generic-y += word-at-a-time.h
 generic-y += xor.h
+generic-y += section-core.h
