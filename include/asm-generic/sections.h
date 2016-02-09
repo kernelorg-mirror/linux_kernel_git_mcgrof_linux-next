@@ -1,6 +1,8 @@
 #ifndef _ASM_GENERIC_SECTIONS_H_
 #define _ASM_GENERIC_SECTIONS_H_
 
+#include <asm-generic/section-core.h>
+
 #if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 
 /* References to section boundaries */
