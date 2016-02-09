@@ -55,6 +55,7 @@
 #endif
 
 #include <linux/export.h>
+#include <asm/section-core.h>
 
 /* Align . to a 8 byte boundary equals to maximum function alignment. */
 #define ALIGN_FUNCTION()  . = ALIGN(8)
@@ -198,8 +199,8 @@
 
 /* .data section */
 #define DATA_DATA							\
-	*(.data)							\
-	*(.ref.data)							\
+	*(SECTION_DATA)							\
+	*(SECTION_REF_DATA)						\
 	*(.data..shared_aligned) /* percpu related */			\
 	MEM_KEEP(init.data)						\
 	MEM_KEEP(exit.data)						\
@@ -262,9 +263,9 @@
  */
 #define RO_DATA_SECTION(align)						\
 	. = ALIGN((align));						\
-	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
+	SECTION_RODATA    : AT(ADDR(SECTION_RODATA) - LOAD_OFFSET) {	\
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
-		*(.rodata) *(.rodata.*)					\
+		*(SECTION_RODATA) *(SECTION_ALL(SECTION_RODATA))	\
 		RO_AFTER_INIT_DATA	/* Read only after init */	\
 		*(__vermagic)		/* Kernel version magic */	\
 		. = ALIGN(8);						\
@@ -394,7 +395,7 @@
 									\
 	/* __*init sections */						\
 	__init_rodata : AT(ADDR(__init_rodata) - LOAD_OFFSET) {		\
-		*(.ref.rodata)						\
+		*(SECTION_REF_RODATA)					\
 		MEM_KEEP(init.rodata)					\
 		MEM_KEEP(exit.rodata)					\
 	}								\
@@ -432,8 +433,8 @@
  * during second ld run in second ld pass when generating System.map */
 #define TEXT_TEXT							\
 		ALIGN_FUNCTION();					\
-		*(.text.hot .text .text.fixup .text.unlikely)		\
-		*(.ref.text)						\
+		*(.text.hot SECTION_TEXT .text.fixup .text.unlikely)	\
+		*(SECTION_REF)						\
 	MEM_KEEP(init.text)						\
 	MEM_KEEP(exit.text)						\
 
@@ -527,11 +528,11 @@
 
 /* init and exit section handling */
 #define INIT_DATA							\
-	*(.init.data)							\
+	*(SECTION_INIT_DATA)						\
 	MEM_DISCARD(init.data)						\
 	KERNEL_CTORS()							\
 	MCOUNT_REC()							\
-	*(.init.rodata)							\
+	*(SECTION_INIT_RODATA)						\
 	FTRACE_EVENTS()							\
 	TRACE_SYSCALLS()						\
 	KPROBE_BLACKLIST()						\
@@ -549,24 +550,24 @@
 	EARLYCON_TABLE()
 
 #define INIT_TEXT							\
-	*(.init.text)							\
+	*(SECTION_INIT)							\
 	*(.text.startup)						\
 	MEM_DISCARD(init.text)
 
 #define EXIT_DATA							\
-	*(.exit.data)							\
+	*(SECTION_EXIT_DATA)						\
 	*(.fini_array)							\
 	*(.dtors)							\
 	MEM_DISCARD(exit.data)						\
 	MEM_DISCARD(exit.rodata)
 
 #define EXIT_TEXT							\
-	*(.exit.text)							\
+	*(SECTION_EXIT)							\
 	*(.text.exit)							\
 	MEM_DISCARD(exit.text)
 
 #define EXIT_CALL							\
-	*(.exitcall.exit)
+	*(SECTION_EXIT_CALL)
 
 /*
  * bss (Block Started by Symbol) - uninitialized data
