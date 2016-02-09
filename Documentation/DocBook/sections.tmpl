@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE set PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+	"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" []>
+<set>
+  <setinfo>
+    <title>Linux ELF sections</title>
+    <subtitle>
+      Explains Linux ELF sections
+    </subtitle>
+
+    <copyright>
+      <year>2016</year>
+      <holder>Luis R. Rodriguez</holder>
+    </copyright>
+
+    <authorgroup>
+      <author>
+        <firstname>Luis</firstname>
+        <surname>Rodriguez</surname>
+        <affiliation>
+          <address><email>mcgrof@kernel.org</email></address>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <legalnotice>
+      <para>
+        This program is free software; you can redistribute it and/or modify it
+        under the terms of copyleft-next (version 0.3.1 or later) as published
+        at http://copyleft-next.org/.
+      </para>
+    </legalnotice>
+
+    <abstract>
+      <para>
+        This book documents the different custom ELF sections used on the Linux
+	kernel and defined on Linux's custom linker script.
+      </para>
+    </abstract>
+  </setinfo>
+  <book id="linux-elf-sections">
+    <bookinfo>
+      <title>Linux kernel ELF sections</title>
+
+      <abstract>
+!Pinclude/asm-generic/section-core.h Introduction
+      </abstract>
+    </bookinfo>
+
+      <chapter>
+      <title>Linux kernel section helpers</title>
+!Pinclude/linux/sections.h Linux section helpers
+!Finclude/linux/sections.h LINUX_SECTION_ALIGNMENT
+!Finclude/linux/sections.h LINUX_SECTION_SIZE
+!Finclude/linux/sections.h LINUX_SECTION_EMPTY
+!Finclude/linux/sections.h LINUX_SECTION_START
+!Finclude/linux/sections.h LINUX_SECTION_END
+!Finclude/linux/sections.h DECLARE_LINUX_SECTION
+!Finclude/linux/sections.h DECLARE_LINUX_SECTION_RO
+!Finclude/linux/sections.h SECTION_TYPE
+      </chapter>
+
+      <chapter>
+      <title>Core Linux kernel sections</title>
+!Pinclude/asm-generic/section-core.h Core Linux kernel sections
+!Finclude/asm-generic/section-core.h SECTION_RODATA
+!Finclude/asm-generic/section-core.h SECTION_TEXT
+!Finclude/asm-generic/section-core.h SECTION_DATA
+      </chapter>
+
+      <chapter>
+      <title>Linux .init* sections</title>
+!Pinclude/asm-generic/section-core.h Linux init sections
+!Finclude/asm-generic/section-core.h SECTION_INIT_DATA
+!Finclude/asm-generic/section-core.h SECTION_INIT_RODATA
+!Finclude/asm-generic/section-core.h SECTION_INIT_CALL
+      </chapter>
+
+      <chapter>
+      <title>Linux .exit* sections</title>
+!Pinclude/asm-generic/section-core.h Linux exit sections
+!Finclude/asm-generic/section-core.h SECTION_EXIT
+!Finclude/asm-generic/section-core.h SECTION_EXIT_DATA
+!Finclude/asm-generic/section-core.h SECTION_EXIT_CALL
+      </chapter>
+
+      <chapter>
+      <title>Linux .ref* sections</title>
+!Pinclude/asm-generic/section-core.h Linux references to init sections
+!Finclude/asm-generic/section-core.h SECTION_REF
+!Finclude/asm-generic/section-core.h SECTION_REF_DATA
+!Finclude/asm-generic/section-core.h SECTION_REF_RODATA
+      </chapter>
+
+  </book>
+</set>
