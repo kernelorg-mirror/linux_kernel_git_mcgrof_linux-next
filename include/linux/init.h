@@ -127,6 +127,24 @@ void __init load_default_modules(void);
 int __init init_rootfs(void);
 
 #ifdef CONFIG_DEBUG_RODATA
+/**
+ * mark_rodata_ro - implemement memory protection for ELF sections
+ *
+ * Architectures which support memory protection define a kernel configuration
+ * entry for CONFIG_DEBUG_RODATA, enable it in and implement mark_rodata_ro().
+ * mark_rodata_ro() should strive to adjust the .rodata and .text ELF sections
+ * with read-only memory protection to prevent modifications of these sections
+ * after bootup. It can also try to use memory protection to prevent execution
+ * on the .rodata ELF section.
+ *
+ * In order to help architectures set both .text and .rodata as read-only with
+ * memory protections in one shot Linux has typically followed the convention
+ * to have the .rodata ELF section follow the .text ELF section on the vmlinux
+ * linker script.
+ *
+ * Linux calls mark_rodata_ro() after freeing .init code and prior to calling
+ * the first init userspace process.
+ */
 void mark_rodata_ro(void);
 #endif
 
