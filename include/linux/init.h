@@ -130,6 +130,24 @@ int __init init_rootfs(void);
 extern bool rodata_enabled;
 #endif
 #ifdef CONFIG_DEBUG_RODATA
+/**
+ * mark_rodata_ro - implement memory protection for ELF sections
+ *
+ * Architectures which support memory protection define a kernel configuration
+ * entry for CONFIG_DEBUG_RODATA, enable it in and implement mark_rodata_ro().
+ * mark_rodata_ro() should strive to adjust the .rodata and .text ELF sections
+ * with read-only memory protection to prevent modifications of these sections
+ * after bootup. It can also try to use memory protection to prevent execution
+ * on the .rodata ELF section.
+ *
+ * In order to help architectures set both .text and .rodata as read-only with
+ * memory protections in one shot Linux has typically followed the convention
+ * to have the .rodata ELF section follow the .text ELF section on the vmlinux
+ * linker script.
+ *
+ * Linux calls mark_rodata_ro() after freeing .init code and prior to calling
+ * the first init userspace process.
+ */
 void mark_rodata_ro(void);
 #endif
 
@@ -140,25 +158,70 @@ extern bool initcall_debug;
 #endif
   
 #ifndef MODULE
+/**
+ * DOC: Initcall levels
+ *
+ * When Linux boots the kernel do_initcalls() iterates over each Linux
+ * initialization level ID and calls all routines embedded on each level ID.
+ * Prior to v2.5.2.3 Linux had only one init level onto which all init
+ * functions folded onto using __initcall(). After v2.5.2.4 Linux split up
+ * initcalls into 7 separate initcall subsection levels, each level describing
+ * different functionality part of the kernel (commit `9d6ba121b7e17085`_
+ * (v2.5.2.3 -> v2.5.2.4)). In order to remain backward compatible __initcall()
+ * calls were left mapped to device_initcall().
+ *
+ * Each init level consists of a dedicated ELF section, init functions are
+ * associated to an init level by linking it into the respective level's
+ * ELF section.
+ *
+ * Lower order init levels run prior to higher order init levels. Ordering
+ * inside each initcall level is determined by respective link order.
+ *
+ * .. _9d6ba121b7e17085: https://git.kernel.org/cgit/linux/kernel/git/history/history.git/commit/?id=9d6ba121b7e17085c95139233686b27a4d4c650e
+ */
 
 #ifndef __ASSEMBLY__
 
-/*
- * initcalls are now grouped by functionality into separate
- * subsections. Ordering inside the subsections is determined
- * by link order. 
- * For backwards compatibility, initcall() puts the call in 
- * the device init subsection.
+/**
+ * __define_initcall - wrapper for defining init levels
  *
- * The `id' arg to __define_initcall() is needed so that multiple initcalls
- * can point at the same handler without causing duplicate-symbol build errors.
+ * @fn: init routine
+ * @id: init level
  *
- * Initcalls are run by placing pointers in initcall sections that the
- * kernel iterates at runtime. The linker can do dead code / data elimination
- * and remove that completely, so the initcall sections have to be marked
- * as KEEP() in the linker script.
+ * Defines a kernel initialization level. A respective linker script entry
+ * is required to ensure the init level is accounted for and to ensure symbols
+ * exist for iterating over all functions in the init level. A init level
+ * represents a series of functionality in the kernel.
+ *
+ * Ordering within an initialization level is determined by link order, so
+ * for instance if a Makefile had::
+ *
+ *	obj-y += foo.o
+ *	obj-y += bar.o
+ *
+ * And foo.c::
+ *
+ *	subsys_initcall(foo_init);
+ *
+ * And bar.c had::
+ *
+ *	subsys_initcall(bar_init);
+ *
+ * foo_init() would be called prior to bar_init().
+ *
+ * Note that @id in __define_initcall() also enables multiple initcalls
+ * to be created using the same handler for different init levels without
+ * causing duplicate-symbol build errors.
+ *
+ * Initcalls are run by placing start symbols to initcall levels inside ELF
+ * sections, the kernel in turn uses these symbols to iterate over each init
+ * level at runtime with do_initcall_level(). The end of each init level is
+ * marked by the subsequent symbol's start address until we reach the symbol
+ * ``__initcall_end``. The linker can do dead code / data elimination and each
+ * init level start symbol could be removed completely in this process, to
+ * avoid this each init level start symbols must be marked as 'KEEP()' in the
+ * linker script to avoid any linker optimization heuristic on initcalls.
  */
-
 #define __define_initcall(fn, id) \
 	static initcall_t __initcall_##fn##id __used \
 	__attribute__((__section__(".initcall" #id ".init"))) = fn;

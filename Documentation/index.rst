@@ -57,6 +57,7 @@ needed).
    media/index
    gpu/index
    security/index
+   sections/index
    sound/index
    crypto/index
 
