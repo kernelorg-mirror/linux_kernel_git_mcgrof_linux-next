@@ -13,6 +13,10 @@ OUTPUT_FORMAT("elf32-bfin")
 ENTRY(__start)
 _jiffies = _jiffies_64;
 
+#if defined(CONFIG_FIRMWARE_IN_KERNEL) || defined(CONFIG_EXTRA_FIRMWARE)
+__FIX_SECTION_REF(builtin_fw);
+#endif
+
 SECTIONS
 {
 #ifdef CONFIG_RAMKERNEL
