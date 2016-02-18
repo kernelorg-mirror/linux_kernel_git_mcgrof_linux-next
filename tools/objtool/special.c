@@ -26,6 +26,10 @@
 #include "special.h"
 #include "warn.h"
 
+#include "../../include/asm-generic/sections.h"
+#include "../../include/asm-generic/tables.h"
+#include "../../include/linux/stringify.h"
+
 #define EX_ENTRY_SIZE		12
 #define EX_ORIG_OFFSET		0
 #define EX_NEW_OFFSET		4
@@ -63,7 +67,9 @@ struct special_entry entries[] = {
 		.feature = ALT_FEATURE_OFFSET,
 	},
 	{
-		.sec = "__jump_table",
+		.sec = __stringify(SECTION_TBL(SECTION_DATA,
+				               __jump_table,
+					       SECTION_ORDER_ANY)),
 		.jump_or_nop = true,
 		.size = JUMP_ENTRY_SIZE,
 		.orig = JUMP_ORIG_OFFSET,
