@@ -63,7 +63,7 @@ struct special_entry entries[] = {
 		.feature = ALT_FEATURE_OFFSET,
 	},
 	{
-		.sec = "__jump_table",
+		.sec = ".data.tbl.__jump_table.any",
 		.jump_or_nop = true,
 		.size = JUMP_ENTRY_SIZE,
 		.orig = JUMP_ORIG_OFFSET,
