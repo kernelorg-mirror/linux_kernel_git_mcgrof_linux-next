@@ -4,6 +4,7 @@
 #if defined(CC_HAVE_ASM_GOTO) && defined(CONFIG_JUMP_LABEL)
 #include <linux/jump_label.h>
 #endif
+#include <linux/tables.h>
 
 /*
  * An instance of this structure is created in a special
@@ -50,6 +51,7 @@ int ddebug_add_module(struct _ddebug *tab, unsigned int n,
 				const char *modname);
 
 #if defined(CONFIG_DYNAMIC_DEBUG)
+DECLARE_LINKTABLE(struct _ddebug, __verbose);
 extern int ddebug_remove_module(const char *mod_name);
 extern __printf(2, 3)
 void __dynamic_pr_debug(struct _ddebug *descriptor, const char *fmt, ...);
@@ -71,8 +73,7 @@ void __dynamic_netdev_dbg(struct _ddebug *descriptor,
 			  const char *fmt, ...);
 
 #define DEFINE_DYNAMIC_DEBUG_METADATA_KEY(name, fmt, key, init)	\
-	static struct _ddebug  __aligned(8)			\
-	__attribute__((section("__verbose"))) name = {		\
+	static LINKTABLE(__verbose, SECTION_ORDER_ANY) name = {	\
 		.modname = KBUILD_MODNAME,			\
 		.function = __func__,				\
 		.filename = __FILE__,				\
