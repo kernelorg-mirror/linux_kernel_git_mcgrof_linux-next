@@ -15,8 +15,11 @@
 #include <linux/static_key.h>
 #include <linux/jump_label_ratelimit.h>
 #include <linux/bug.h>
+#include <linux/tables.h>
 
 #ifdef HAVE_JUMP_LABEL
+
+DEFINE_LINKTABLE(struct jump_entry, __jump_table);
 
 /* mutex to protect coming/going of the the jump_label table */
 static DEFINE_MUTEX(jump_label_mutex);
@@ -274,8 +277,6 @@ static void __jump_label_update(struct static_key *key,
 
 void __init jump_label_init(void)
 {
-	struct jump_entry *iter_start = __start___jump_table;
-	struct jump_entry *iter_stop = __stop___jump_table;
 	struct static_key *key = NULL;
 	struct jump_entry *iter;
 
@@ -292,9 +293,10 @@ void __init jump_label_init(void)
 		return;
 
 	jump_label_lock();
-	jump_label_sort_entries(iter_start, iter_stop);
+	jump_label_sort_entries(LINUX_SECTION_START(__jump_table),
+				LINUX_SECTION_END(__jump_table));
 
-	for (iter = iter_start; iter < iter_stop; iter++) {
+	LINKTABLE_FOR_EACH(iter, __jump_table) {
 		struct static_key *iterk;
 
 		/* rewrite NOPs */
@@ -539,8 +541,9 @@ early_initcall(jump_label_init_module);
  */
 int jump_label_text_reserved(void *start, void *end)
 {
-	int ret = __jump_label_text_reserved(__start___jump_table,
-			__stop___jump_table, start, end);
+	int ret = __jump_label_text_reserved(LINUX_SECTION_START(__jump_table),
+					     LINUX_SECTION_END(__jump_table),
+					     start, end);
 
 	if (ret)
 		return ret;
@@ -553,7 +556,7 @@ int jump_label_text_reserved(void *start, void *end)
 
 static void jump_label_update(struct static_key *key)
 {
-	struct jump_entry *stop = __stop___jump_table;
+	struct jump_entry *stop = LINUX_SECTION_END(__jump_table);
 	struct jump_entry *entry = static_key_entries(key);
 #ifdef CONFIG_MODULES
 	struct module *mod;
