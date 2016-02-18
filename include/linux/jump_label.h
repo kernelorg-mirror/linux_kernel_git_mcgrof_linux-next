@@ -115,6 +115,7 @@ enum jump_label_type {
 struct module;
 
 #ifdef HAVE_JUMP_LABEL
+#include <linux/tables.h>
 
 #define JUMP_TYPE_FALSE	0UL
 #define JUMP_TYPE_TRUE	1UL
@@ -130,8 +131,7 @@ static __always_inline bool static_key_true(struct static_key *key)
 	return !arch_static_branch(key, true);
 }
 
-extern struct jump_entry __start___jump_table[];
-extern struct jump_entry __stop___jump_table[];
+DECLARE_LINKTABLE(struct jump_entry, __jump_table);
 
 extern void jump_label_init(void);
 extern void jump_label_lock(void);
@@ -384,6 +384,6 @@ extern bool ____wrong_branch_error(void);
 #define static_branch_enable(x)		static_key_enable(&(x)->key)
 #define static_branch_disable(x)	static_key_disable(&(x)->key)
 
-#endif	/* _LINUX_JUMP_LABEL_H */
-
 #endif /* __ASSEMBLY__ */
+
+#endif	/* _LINUX_JUMP_LABEL_H */
