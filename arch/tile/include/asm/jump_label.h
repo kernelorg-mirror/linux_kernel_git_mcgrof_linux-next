@@ -16,6 +16,7 @@
 #define _ASM_TILE_JUMP_LABEL_H
 
 #include <arch/opcode.h>
+#include <asm/tables.h>
 
 #define JUMP_LABEL_NOP_SIZE	TILE_BUNDLE_SIZE_IN_BYTES
 
@@ -24,7 +25,7 @@ static __always_inline bool arch_static_branch(struct static_key *key,
 {
 	asm_volatile_goto("1:\n\t"
 		"nop" "\n\t"
-		".pushsection __jump_table,  \"aw\"\n\t"
+		push_section_tbl_any(.data, __jump_table, aw)
 		".quad 1b, %l[l_yes], %0 + %1 \n\t"
 		".popsection\n\t"
 		: :  "i" (key), "i" (branch) : : l_yes);
@@ -38,7 +39,7 @@ static __always_inline bool arch_static_branch_jump(struct static_key *key,
 {
 	asm_volatile_goto("1:\n\t"
 		"j %l[l_yes]" "\n\t"
-		".pushsection __jump_table,  \"aw\"\n\t"
+		push_section_tbl_any(.data, __jump_table, aw)
 		".quad 1b, %l[l_yes], %0 + %1 \n\t"
 		".popsection\n\t"
 		: :  "i" (key), "i" (branch) : : l_yes);
