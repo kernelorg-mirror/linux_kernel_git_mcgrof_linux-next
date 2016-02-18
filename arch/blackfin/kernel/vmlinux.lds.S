@@ -17,6 +17,10 @@ _jiffies = _jiffies_64;
 __FIX_SECTION_REF(builtin_fw);
 #endif
 
+#if defined(CONFIG_DYNAMIC_DEBUG)
+__FIX_SECTION_REF(__verbose);
+#endif
+
 SECTIONS
 {
 #ifdef CONFIG_RAMKERNEL
