@@ -46,11 +46,12 @@
  */
 #include <asm/asmmacro.h>
 #include <asm/break.h>
+#include <asm/ranges.h>
 
 	/*
 	 * void jprobe_break(void)
 	 */
-	.section .kprobes.text, "ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 ENTRY(jprobe_break)
 	break.m __IA64_BREAK_JPROBE
 END(jprobe_break)

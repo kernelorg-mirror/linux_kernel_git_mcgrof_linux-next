@@ -287,9 +287,9 @@ static void kprobe_reenter_check(struct kprobe_ctlblk *kcb, struct kprobe *p)
 	case KPROBE_REENTER:
 	default:
 		/*
-		 * A kprobe on the code path to single step an instruction
-		 * is a BUG. The code path resides in the .kprobes.text
-		 * section and is executed with interrupts disabled.
+		 * A kprobe on the code path to single step an instruction is a
+		 * BUG. The code path resides in the kprobes section range and
+		 * is executed with interrupts disabled.
 		 */
 		printk(KERN_EMERG "Invalid kprobe detected at %p.\n", p->addr);
 		dump_kprobe(p);

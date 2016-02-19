@@ -16,6 +16,7 @@
 #include <asm/cacheflush.h>
 #include <asm/hypervisor.h>
 #include <asm/cpudata.h>
+#include <asm/ranges.h>
 
 	/* Basically, most of the Spitfire vs. Cheetah madness
 	 * has to do with the fact that Cheetah does not support
@@ -148,7 +149,7 @@ __spitfire_flush_tlb_mm_slow:
 /*
  * The following code flushes one page_size worth.
  */
-	.section .kprobes.text, "ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 	.align		32
 	.globl		__flush_icache_page
 __flush_icache_page:	/* %o0 = phys_page */

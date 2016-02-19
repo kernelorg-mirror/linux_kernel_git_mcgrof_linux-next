@@ -9,7 +9,7 @@
 
 #include <asm/asmmacro.h>
 #include <asm/export.h>
-
+#include <asm/ranges.h>
 
 	/*
 	 * flush_icache_range(start,end)
@@ -21,7 +21,7 @@
 	 *
 	 *	Note: "in0" and "in1" are preserved for debugging purposes.
 	 */
-	.section .kprobes.text,"ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 GLOBAL_ENTRY(flush_icache_range)
 
 	.prologue
@@ -74,7 +74,7 @@ EXPORT_SYMBOL_GPL(flush_icache_range)
 	 *
 	 *	Note: "in0" and "in1" are preserved for debugging purposes.
 	 */
-	.section .kprobes.text,"ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 GLOBAL_ENTRY(clflush_cache_range)
 
 	.prologue
