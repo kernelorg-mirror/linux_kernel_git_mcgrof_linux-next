@@ -22,6 +22,7 @@
 #include <asm/kprobes.h>
 #include <linux/uaccess.h>
 #include <asm/cpufeature.h>
+#include <asm/kprobes.h>
 
 #define CREATE_TRACE_POINTS
 #include "trace-events-emulation.h"
