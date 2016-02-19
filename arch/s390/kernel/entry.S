@@ -23,6 +23,7 @@
 #include <asm/vx-insn.h>
 #include <asm/setup.h>
 #include <asm/nmi.h>
+#include <asm/ranges.h>
 
 __PT_R0      =	__PT_GPRS
 __PT_R1      =	__PT_GPRS + 8
@@ -162,7 +163,7 @@ _PIF_WORK	= (_PIF_PER_TRAP)
 		tm	off+\addr, \mask
 	.endm
 
-	.section .kprobes.text, "ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 .Ldummy:
 	/*
 	 * This nop exists only in order to avoid that __switch_to starts at
@@ -975,7 +976,7 @@ ENTRY(restart_int_handler)
 	brc	2,2b
 3:	j	3b
 
-	.section .kprobes.text, "ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 
 #ifdef CONFIG_CHECK_STACK
 /*
