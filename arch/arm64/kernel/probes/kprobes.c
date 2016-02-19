@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/stop_machine.h>
 #include <linux/stringify.h>
+#include <linux/ranges.h>
 #include <asm/traps.h>
 #include <asm/ptrace.h>
 #include <asm/cacheflush.h>
@@ -540,8 +541,7 @@ int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
 
 bool arch_within_kprobe_blacklist(unsigned long addr)
 {
-	if ((addr >= (unsigned long)__kprobes_text_start &&
-	    addr < (unsigned long)__kprobes_text_end) ||
+	if (SECTION_RANGE_ADDR_WITHIN(kprobes, addr) ||
 	    (addr >= (unsigned long)__entry_text_start &&
 	    addr < (unsigned long)__entry_text_end) ||
 	    (addr >= (unsigned long)__idmap_text_start &&

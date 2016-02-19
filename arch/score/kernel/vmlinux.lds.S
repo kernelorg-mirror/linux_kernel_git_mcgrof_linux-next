@@ -42,7 +42,6 @@ SECTIONS
 		SCHED_TEXT
 		CPUIDLE_TEXT
 		LOCK_TEXT
-		KPROBES_TEXT
 		*(.text.*)
 		*(.fixup)
 		. = ALIGN (4) ;
