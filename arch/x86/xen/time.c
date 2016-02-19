@@ -446,8 +446,10 @@ void __init xen_init_time_ops(void)
 	x86_platform.calibrate_tsc = xen_tsc_khz;
 	x86_platform.get_wallclock = xen_get_wallclock;
 	/* Dom0 uses the native method to set the hardware RTC. */
-	if (!xen_initial_domain())
+	if (!xen_initial_domain()) {
+		x86_init.platform_flags |= X86_PLATFORM_NO_RTC;
 		x86_platform.set_wallclock = xen_set_wallclock;
+	}
 }
 
 #ifdef CONFIG_XEN_PVHVM
