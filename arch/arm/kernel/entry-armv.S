@@ -34,6 +34,7 @@
 #include "entry-header.S"
 #include <asm/entry-macro-multi.S>
 #include <asm/probes.h>
+#include <asm/ranges.h>
 
 /*
  * Interrupt handling.
@@ -83,7 +84,7 @@
 	.endm
 
 #ifdef CONFIG_KPROBES
-	.section	.kprobes.text,"ax",%progbits
+	section_rng_asmtype(SECTION_TEXT, kprobes, ax, %progbits)
 #else
 	.text
 #endif
