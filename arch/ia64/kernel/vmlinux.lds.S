@@ -48,7 +48,6 @@ SECTIONS {
 		SCHED_TEXT
 		CPUIDLE_TEXT
 		LOCK_TEXT
-		KPROBES_TEXT
 		*(.gnu.linkonce.t*)
 	}
 
