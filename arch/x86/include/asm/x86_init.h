@@ -1,6 +1,7 @@
 #ifndef _ASM_X86_PLATFORM_H
 #define _ASM_X86_PLATFORM_H
 
+#include <linux/bitops.h>
 #include <asm/bootparam.h>
 
 struct mpc_bus;
@@ -116,6 +117,7 @@ struct x86_init_pci {
 /**
  * struct x86_init_ops - functions for platform specific setup
  *
+ * @platform_flags:		bitmask of enum x86_platform_flags.
  */
 struct x86_init_ops {
 	struct x86_init_resources	resources;
@@ -126,6 +128,7 @@ struct x86_init_ops {
 	struct x86_init_timers		timers;
 	struct x86_init_iommu		iommu;
 	struct x86_init_pci		pci;
+	u64 platform_flags;
 };
 
 /**
@@ -140,6 +143,15 @@ struct x86_cpuinit_ops {
 };
 
 struct timespec;
+
+/**
+ * enum x86_platform_flags - x86 platform flags
+ *
+ * X86_PLATFORM_NO_RTC: set when platform has no CMOS real-time clock present
+ */
+enum x86_platform_flags {
+	X86_PLATFORM_NO_RTC	= BIT(0),
+};
 
 /**
  * struct x86_platform_ops - platform specific runtime functions

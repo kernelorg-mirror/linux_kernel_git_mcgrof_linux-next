@@ -1414,7 +1414,6 @@ __init void lguest_init(void)
 	pv_info.kernel_rpl = 1;
 	/* Everyone except Xen runs with this set. */
 	pv_info.shared_kernel_pmd = 1;
-	pv_info.features = 0;
 
 	/*
 	 * We set up all the lguest overrides for sensitive operations.  These
@@ -1482,6 +1481,7 @@ __init void lguest_init(void)
 	x86_init.resources.memory_setup = lguest_memory_setup;
 	x86_init.irqs.intr_init = lguest_init_IRQ;
 	x86_init.timers.timer_init = lguest_time_init;
+	x86_init.platform_flags |= X86_PLATFORM_NO_RTC;
 	x86_platform.calibrate_tsc = lguest_tsc_khz;
 	x86_platform.get_wallclock =  lguest_get_wallclock;
 
