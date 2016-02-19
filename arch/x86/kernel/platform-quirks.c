@@ -8,6 +8,7 @@ void __init x86_early_init_platform_quirks(void)
 {
 	x86_platform.legacy.rtc = 1;
 	x86_platform.legacy.ebda_search = 0;
+	x86_platform.legacy.devices.pnpbios = 1;
 
 	switch (boot_params.hdr.hardware_subarch) {
 	case X86_SUBARCH_PC:
@@ -15,8 +16,17 @@ void __init x86_early_init_platform_quirks(void)
 		break;
 	case X86_SUBARCH_XEN:
 	case X86_SUBARCH_LGUEST:
+		x86_platform.legacy.devices.pnpbios = 0;
+	/* fall through */
 	case X86_SUBARCH_INTEL_MID:
 		x86_platform.legacy.rtc = 0;
 		break;
 	}
 }
+
+#if defined(CONFIG_PNPBIOS)
+bool __init arch_pnpbios_disabled(void)
+{
+	return x86_platform.legacy.devices.pnpbios == 0;
+}
+#endif
