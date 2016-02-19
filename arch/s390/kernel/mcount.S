@@ -10,7 +10,7 @@
 #include <asm/ftrace.h>
 #include <asm/ptrace.h>
 
-	.section .kprobes.text, "ax"
+	section_rng(SECTION_TEXT, kprobes, ax,)
 
 ENTRY(ftrace_stub)
 	br	%r14
