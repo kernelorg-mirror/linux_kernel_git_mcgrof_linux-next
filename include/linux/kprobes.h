@@ -42,7 +42,10 @@
 #include <linux/ftrace.h>
 
 #ifdef CONFIG_KPROBES
+#include <linux/ranges.h>
 #include <asm/kprobes.h>
+
+DECLARE_SECTION_RANGE(kprobes);
 
 /* kprobe_status settings */
 #define KPROBE_HIT_ACTIVE	0x00000001
@@ -492,7 +495,7 @@ static unsigned long __used				\
 	_kbl_addr_##fname = (unsigned long)fname;
 # define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
 /* Use this to forbid a kprobes attach on very low level functions */
-# define __kprobes	__attribute__((__section__(".kprobes.text")))
+# define __kprobes	__LINUX_RANGE(SECTION_TEXT, kprobes)
 # define nokprobe_inline	__always_inline
 #else
 # define NOKPROBE_SYMBOL(fname)
