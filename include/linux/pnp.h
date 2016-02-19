@@ -510,6 +510,10 @@ static inline void pnp_unregister_driver(struct pnp_driver *drv) { }
 
 #endif /* CONFIG_PNP */
 
+#if defined(CONFIG_PNPBIOS)
+extern bool arch_pnpbios_disabled(void);
+#endif /* CONFIG_PNPBIOS */
+
 /**
  * module_pnp_driver() - Helper macro for registering a PnP driver
  * @__pnp_driver: pnp_driver struct
