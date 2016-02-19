@@ -23,6 +23,7 @@
 #include <asm/sysreg.h>
 #include <asm/thread_info.h>
 #include <asm/unistd.h>
+#include <asm/ranges.h>
 
 #ifdef CONFIG_PREEMPT
 # define preempt_stop		mask_interrupts
@@ -605,7 +606,11 @@ fault_exit_work:
 	brcc	fault_resume_user
 	rjmp	enter_monitor_mode
 
-	.section .kprobes.text, "ax", @progbits
+#ifdef CONFIG_KPROBES
+	set_section_rng_type(SECTION_TEXT, kprobes, ax, @progbits)
+#else
+	.text
+#endif
 	.type	handle_debug, @function
 handle_debug:
 	sub	sp, 4		/* r12_orig */
@@ -826,7 +831,11 @@ irq_level\level:
 	IRQ_LEVEL 2
 	IRQ_LEVEL 3
 
-	.section .kprobes.text, "ax", @progbits
+#ifdef CONFIG_KPROBES
+	set_section_rng_type(SECTION_TEXT, kprobes, ax, @progbits)
+#else
+	.text
+#endif
 	.type	enter_monitor_mode, @function
 enter_monitor_mode:
 	/*

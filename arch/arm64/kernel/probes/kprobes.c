@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/stop_machine.h>
 #include <linux/stringify.h>
+#include <linux/ranges.h>
 #include <asm/traps.h>
 #include <asm/ptrace.h>
 #include <asm/cacheflush.h>
@@ -567,8 +568,7 @@ bool arch_within_kprobe_blacklist(unsigned long addr)
 	extern char __idmap_text_start[], __idmap_text_end[];
 	extern char __hyp_idmap_text_start[], __hyp_idmap_text_end[];
 
-	if ((addr >= (unsigned long)__kprobes_text_start &&
-	    addr < (unsigned long)__kprobes_text_end) ||
+	if (SECTION_ADDR_IN_RANGE(kprobes, addr) ||
 	    (addr >= (unsigned long)__entry_text_start &&
 	    addr < (unsigned long)__entry_text_end) ||
 	    (addr >= (unsigned long)__idmap_text_start &&
