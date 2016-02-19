@@ -1328,8 +1328,7 @@ out:
 bool __weak arch_within_kprobe_blacklist(unsigned long addr)
 {
 	/* The __kprobes marked functions and entry code must not be probed */
-	return addr >= (unsigned long)__kprobes_text_start &&
-	       addr < (unsigned long)__kprobes_text_end;
+	return SECTION_ADDR_IN_RANGE(kprobes, addr);
 }
 
 bool within_kprobe_blacklist(unsigned long addr)
@@ -2128,6 +2127,9 @@ static struct notifier_block kprobe_module_nb = {
 /* Markers of _kprobe_blacklist section */
 extern unsigned long __start_kprobe_blacklist[];
 extern unsigned long __stop_kprobe_blacklist[];
+
+/* Actual kprobes section range */
+DEFINE_SECTION_RANGE(kprobes, SECTION_TEXT);
 
 static int __init init_kprobes(void)
 {
