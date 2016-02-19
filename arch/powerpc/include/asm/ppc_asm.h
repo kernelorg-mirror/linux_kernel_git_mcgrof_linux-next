@@ -9,6 +9,7 @@
 #include <asm/processor.h>
 #include <asm/ppc-opcode.h>
 #include <asm/firmware.h>
+#include <asm/ranges.h>
 
 #ifndef __ASSEMBLY__
 #error __FILE__ should only be used in assembler files
@@ -218,7 +219,7 @@ name: \
 	.localentry name,.-name
 
 #define _KPROBE(name) \
-	.section ".kprobes.text","a"; \
+	set_section_rng(SECTION_TEXT, kprobes, a); \
 	.align 2 ; \
 	.type name,@function; \
 	.globl name; \
@@ -248,7 +249,7 @@ GLUE(.,name):
 #define _GLOBAL_TOC(name) _GLOBAL(name)
 
 #define _KPROBE(name) \
-	.section ".kprobes.text","a"; \
+	set_section_rng(SECTION_TEXT, kprobes, a); \
 	.align 2 ; \
 	.globl name; \
 	.globl GLUE(.,name); \
@@ -280,7 +281,7 @@ n:
 #define _GLOBAL_TOC(name) _GLOBAL(name)
 
 #define _KPROBE(n)	\
-	.section ".kprobes.text","a";	\
+	set_section_rng(SECTION_TEXT, kprobes, a); \
 	.globl	n;	\
 n:
 

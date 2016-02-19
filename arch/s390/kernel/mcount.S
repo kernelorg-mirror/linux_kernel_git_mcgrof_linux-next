@@ -9,8 +9,9 @@
 #include <asm/asm-offsets.h>
 #include <asm/ftrace.h>
 #include <asm/ptrace.h>
+#include <asm/ranges.h>
 
-	.section .kprobes.text, "ax"
+	set_section_rng(SECTION_TEXT, kprobes, ax)
 
 ENTRY(ftrace_stub)
 	br	%r14
