@@ -33,6 +33,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "../../include/linux/sections.h"
+#include "../../include/asm-generic/sections.h"
+#include "../../include/linux/ranges.h"
+#include "../../include/asm-generic/ranges.h"
+
 #ifndef EM_METAG
 /* Remove this when these make it to the standard system elf.h. */
 #define EM_METAG      174
@@ -356,7 +361,7 @@ is_mcounted_section_name(char const *const txtname)
 		strcmp(".sched.text",    txtname) == 0 ||
 		strcmp(".spinlock.text", txtname) == 0 ||
 		strcmp(".irqentry.text", txtname) == 0 ||
-		strcmp(".kprobes.text", txtname) == 0 ||
+		strcmp(SECTION_RNG(SECTION_TEXT, kprobe), txtname) == 0 ||
 		strcmp(".text.unlikely", txtname) == 0;
 }
 

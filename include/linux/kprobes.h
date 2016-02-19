@@ -42,7 +42,10 @@
 #include <linux/ftrace.h>
 
 #ifdef CONFIG_KPROBES
+#include <linux/ranges.h>
 #include <asm/kprobes.h>
+
+DECLARE_SECTION_RANGE(kprobes);
 
 /* kprobe_status settings */
 #define KPROBE_HIT_ACTIVE	0x00000001
