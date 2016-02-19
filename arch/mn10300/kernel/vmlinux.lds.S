@@ -32,7 +32,6 @@ SECTIONS
 	SCHED_TEXT
 	CPUIDLE_TEXT
 	LOCK_TEXT
-	KPROBES_TEXT
 	*(.fixup)
 	*(.gnu.warning)
 	} = 0xcb
