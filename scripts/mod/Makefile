@@ -1,5 +1,7 @@
 OBJECT_FILES_NON_STANDARD := y
 
+HOST_EXTRACFLAGS += -U__KERNEL__
+
 hostprogs-y	:= modpost mk_elfconfig
 always		:= $(hostprogs-y) empty.o
 
