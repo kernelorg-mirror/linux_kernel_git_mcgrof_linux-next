@@ -42,6 +42,44 @@ in these callbacks it frees it for you by default after callback handlers
 are issued. If you wish to keep the driver data around after your callbacks
 you must specify this through the driver data request parameter data structure.
 
+Testing the driver_data API
+===========================
+
+The driver data API has a selftest driver: lib/test_driver_data.c. The
+test_driver_data enables you to build your tests in userspace by exposing knobs
+of the exported API in userspace and enabling userspace to configure and
+trigger a kernel call. This lets us build most possible test cases of
+the kernel APIs from userspace.
+
+The test_driver_data also enables multiple test triggers to be created
+enabling testing to be done in parallel, one test interface per test case.
+
+To test an async call one could do::
+
+        echo anything > /lib/firmware/test-driver_data.bin
+        echo -n 1 >  /sys/devices/virtual/misc/test_driver_data0/config_async
+        echo -n 1 >  /sys/devices/virtual/misc/test_driver_data0/trigger_config
+
+A series of tests have been written to test the driver data API thoroughly.
+A respective test case is expected to bet written as new features get added.
+For details of existing tests run::
+
+        tools/testing/selftests/firmware/driver_data.sh -l
+
+To see all available options::
+
+        tools/testing/selftests/firmware/driver_data.sh --help
+
+To run a test 0010 case 40 times::
+
+        tools/testing/selftests/firmware/driver_data.sh -c 0010 40
+
+Note that driver_data.sh uses its own temporary custom path for creating and
+looking for driver data files, it does this to not overwrite any production
+files you might have which may share the same names used by the test shell
+script driver_data.sh. If you are not using the driver_data.sh script your
+default path will be used.
+
 Tracking development enhancements and ideas
 ===========================================
 

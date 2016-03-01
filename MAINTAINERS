@@ -5226,6 +5226,7 @@ L:	linux-kernel@vger.kernel.org
 S:	Maintained
 F:	Documentation/firmware_class/
 F:	drivers/base/firmware*.c
+F:	lib/test_driver_data.c
 F:	include/linux/firmware.h
 F:	include/linux/driver_data.h
 
