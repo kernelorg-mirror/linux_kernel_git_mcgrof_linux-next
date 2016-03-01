@@ -3,7 +3,7 @@
 # No binaries, but make sure arg-less "make" doesn't trigger "run_tests"
 all:
 
-TEST_PROGS := fw_filesystem.sh fw_fallback.sh
+TEST_PROGS := fw_filesystem.sh fw_fallback.sh driver_data.sh
 
 include ../lib.mk
 
