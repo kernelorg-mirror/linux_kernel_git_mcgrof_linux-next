@@ -1964,6 +1964,18 @@ config TEST_FIRMWARE
 
 	  If unsure, say N.
 
+config TEST_DRIVER_DATA
+	tristate "Test driver data loading via driver_data APIs"
+	default n
+	depends on FW_LOADER
+	help
+	  This builds the "test_driver_data" module that creates a userspace
+	  interface for testing driver data loading using the driver_data API.
+	  This can be used to control the triggering of driver data loading
+	  without needing an actual real device.
+
+	  If unsure, say N.
+
 config TEST_UDELAY
 	tristate "udelay test driver"
 	default n
