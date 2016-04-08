@@ -20,6 +20,9 @@ void __init x86_early_init_platform_quirks(void)
 		x86_platform.legacy.devices.pnpbios = 0;
 		x86_platform.legacy.rtc = 0;
 		break;
+	case X86_SUBARCH_CE4100:
+		x86_platform.legacy.devices.pnpbios = 0;
+		break;
 	}
 
 	if (x86_platform.set_legacy_features)
