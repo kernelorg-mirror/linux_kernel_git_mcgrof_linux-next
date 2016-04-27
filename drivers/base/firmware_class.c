@@ -1357,7 +1357,7 @@ _request_sysdata_prepare(struct sysdata_file **sysdata_p, const char *name,
 		return -ENOMEM;
 	}
 
-	ret = _request_firmware_prepare(&fw, name, device);
+	ret = _request_firmware_prepare(&fw, name, device, NULL, 0);
 	if (ret >= 0)
 		sysdata->priv = fw;
 

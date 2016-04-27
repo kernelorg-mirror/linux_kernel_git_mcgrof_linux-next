@@ -86,4 +86,53 @@ Tracking development enhancements and ideas
 To help track ongoing development for firmware_class and related items to
 firmware_class refer to the kernel newbies wiki page [0].
 
+Converting old firmware API users to sysdata API
+================================================
+
+To help developers convert drivers over to the sysdata API
+a series of Coccinelle SmPL patches is provided to help with
+the transition if and when needed:
+
+Documentation/firmware_class/convert-sysdata-async.cocci - for async calls
+Documentation/firmware_class/convert-sysdata-generic.cocci - for sync calls
+Documentation/firmware_class/convert-sysdata-sync.cocci - generic work
+
+3 files are used to limit each conversion's scope and increase the speed
+for conversion. For instance the sync conversion uses the flags (--no-loops
+--no-gotos). To use Coccinelle to help convert your driver over using
+these helpers in one shot you can use the provided script as follows:
+
+./Documentation/firmware_class/convert-sysdata.sh path-to-driver/
+
+Contrary to the scripts/coccinelle tradition to send changes to stdout,
+this uses the spatch --in-place option to make the required changes
+in your git tree, to see the resulting effects you can use 'git diff'.
+You should revise the code yourself, and ensure that it is correct,
+compile it and run time test it if possible before submitting a patch
+to transform it using this SmPL patch.
+
+A few notes about these Coccinelle changes:
+
+a) If you see if (__true__) in your changes, the sync rule add_cb_sync
+   was unable to complete the work, you should review this and do the
+   change yourself
+
+b) The add_desc_sync rule deals with two cases, one where the
+   const struct sysdata_file_desc sysdata_desc sysdata_desc is properly
+   initialized, and the other where its initialization occurs later in
+   code. Since the uninitialized case can be identified through a compile
+   error, to help simplify this rule and help with the transition the rule
+   is kept, developers however should review the changes and ensure the
+   descriptor is properly initialized.
+
+c) GFP_KERNEL is assumed, an easy change the script can enable use on
+   ATOMIC cases as well, however these haven't been reviewed yet.
+
+d) FW_ACTION_NOHOTPLUG is not handled -- these require the usermode helper
+   and the sysdata API purposely ignores this.
+
+If you use this SmPL patch to transform your driver please use the tag:
+
+Generated-by: Coccinelle SmPL
+
 [0] http://kernelnewbies.org/KernelProjects/firmware-class-enhancements
