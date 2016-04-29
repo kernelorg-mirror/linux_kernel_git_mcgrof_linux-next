@@ -16,7 +16,7 @@
  * published by the Free Software Foundation.
  */
 
-#include <linux/firmware.h>
+#include <linux/driver_data.h>
 #include <linux/etherdevice.h>
 
 #include <net/mac80211.h>
