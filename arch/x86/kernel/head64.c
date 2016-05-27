@@ -24,7 +24,6 @@
 #include <asm/sections.h>
 #include <asm/kdebug.h>
 #include <asm/e820.h>
-#include <asm/bios_ebda.h>
 #include <asm/bootparam_utils.h>
 #include <asm/microcode.h>
 #include <asm/kasan.h>
@@ -185,8 +184,6 @@ void __init x86_64_start_reservations(char *real_mode_data)
 
 	x86_early_init_platform_quirks();
 	x86_init_fn_early_init();
-
-	reserve_ebda_region();
 
 	switch (boot_params.hdr.hardware_subarch) {
 	case X86_SUBARCH_INTEL_MID:

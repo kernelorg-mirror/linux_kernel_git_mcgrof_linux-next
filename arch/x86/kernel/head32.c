@@ -16,7 +16,6 @@
 #include <asm/page.h>
 #include <asm/apic.h>
 #include <asm/io_apic.h>
-#include <asm/bios_ebda.h>
 #include <asm/tlbflush.h>
 #include <asm/bootparam_utils.h>
 #include <asm/x86_init.h>
@@ -26,8 +25,6 @@ static void __init i386_default_early_setup(void)
 	/* Initialize 32bit specific setup functions */
 	x86_init.resources.reserve_resources = i386_reserve_resources;
 	x86_init.mpparse.setup_ioapic_ids = setup_ioapic_ids_from_mpc;
-
-	reserve_ebda_region();
 }
 
 asmlinkage __visible void __init i386_start_kernel(void)
