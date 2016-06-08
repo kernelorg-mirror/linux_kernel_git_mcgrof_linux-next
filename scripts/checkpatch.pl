@@ -6014,6 +6014,7 @@ sub process {
 						Dual\ BSD/GPL|
 						Dual\ MIT/GPL|
 						Dual\ MPL/GPL|
+						copyleft-next|
 						Proprietary
 					}x;
 			if ($extracted_string !~ /^"(?:$valid_licenses)"$/x) {
