@@ -278,6 +278,10 @@ run_cmd_parmap() {
 		echo "Running ($NPROC in parallel): $@"
 	fi
 	$@ 2>&1
+	if [[ $? -ne 0 ]]; then
+		echo "coccicheck failed"
+		exit $?
+	fi
 }
 
 run_cmd_old() {
