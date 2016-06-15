@@ -152,7 +152,7 @@ config FW_LOADER_USER_HELPER
 	bool
 
 config FW_LOADER_USER_HELPER_FALLBACK
-	bool "Fallback user-helper invocation for firmware loading"
+	bool "Fallback user-helper invocation for firmware loading (avoid)"
 	depends on FW_LOADER
 	select FW_LOADER_USER_HELPER
 	help
