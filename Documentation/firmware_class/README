@@ -93,6 +93,26 @@
    user contexts to request firmware asynchronously, but can't be called
    in atomic contexts.
 
+Requirements:
+=============
+
+You should avoid at all costs requesting firmware on both init and probe paths
+of your device driver. Reason for this is the complexity needed to ensure a
+firmware will be available for a driver early in boot through different
+build configurations. Consider built-in drivers needing firmware early, or
+consider a driver assuming it will only get firmware after pivot_root().
+
+Drivers that really need firmware early should use stuff the firmware in
+initramfs or consider using CONFIG_EXTRA_FIRMWARE. Using initramfs is much
+more portable to more distributions as not all distributions wish to enable
+CONFIG_EXTRA_FIRMWARE. Should a driver require the firmware being built-in
+it should depend on CONFIG_EXTRA_FIRMWARE. There is no current annotation for
+requiring a firmware on initramfs.
+
+If you're a maintainer you can help police this with:
+
+$ export COCCI=scripts/coccinelle/api/request_firmware-avoid-init-probe-init.cocci
+$ make coccicheck MODE=report
 
  about in-kernel persistence:
  ---------------------------
