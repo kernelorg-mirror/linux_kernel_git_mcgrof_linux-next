@@ -15,7 +15,14 @@
 virtual report
 virtual context
 
-@ r1 depends on report || context @
+@ r0 depends on report || context @
+declarer name DECLARE_FW_CUSTOM_FALLBACK;
+expression E;
+@@
+
+DECLARE_FW_CUSTOM_FALLBACK(E);
+
+@ r1 depends on !r0 && (report || context) @
 expression mod, name, dev, gfp, drv, cb;
 position p;
 @@
