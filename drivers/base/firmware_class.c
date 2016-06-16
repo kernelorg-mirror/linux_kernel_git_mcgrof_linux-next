@@ -39,6 +39,13 @@ MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
 MODULE_LICENSE("GPL");
 
+/*
+ * Helper for scripts/coccinelle/api/request_firmware-usermode.cocci
+ * and so users can also easily search for the respectively needed
+ * usermode helper.
+ */
+#define DECLARE_FW_LOADER_USER(__usermode_helper)
+
 /* Builtin firmware support */
 
 #ifdef CONFIG_FW_LOADER
