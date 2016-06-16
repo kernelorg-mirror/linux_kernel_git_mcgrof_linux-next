@@ -8,6 +8,13 @@
 #define FW_ACTION_NOHOTPLUG 0
 #define FW_ACTION_HOTPLUG 1
 
+/*
+ * Helper for scripts/coccinelle/api/request_firmware-usermode.cocci
+ * and so users can also easily search for the respectively needed
+ * usermode helper.
+ */
+#define DECLARE_FW_LOADER_USER(__usermode_helper)
+
 struct firmware {
 	size_t size;
 	const u8 *data;
