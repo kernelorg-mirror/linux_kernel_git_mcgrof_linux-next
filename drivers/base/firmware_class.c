@@ -1412,7 +1412,7 @@ static int cache_firmware(const char *fw_name)
 
 	pr_debug("%s: %s\n", __func__, fw_name);
 
-	ret = request_firmware(&fw, fw_name, NULL);
+	ret = request_firmware_direct(&fw, fw_name, NULL);
 	if (!ret)
 		kfree(fw);
 

@@ -172,3 +172,6 @@ $ make coccicheck MODE=report
  resume callback, and callers needn't cache the firmware by
  themselves any more for dealing with firmware loss during system
  resume.
+
+The firmware cache is only for non-user mode helper users. Drivers that
+require the usermode helper must deal with caching on their own.
