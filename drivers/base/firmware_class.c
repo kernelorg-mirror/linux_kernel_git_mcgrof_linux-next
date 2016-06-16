@@ -1412,7 +1412,7 @@ static int cache_firmware(const char *fw_name)
 
 	pr_debug("%s: %s\n", __func__, fw_name);
 
-	ret = request_firmware(&fw, fw_name, NULL);
+	ret = request_firmware_direct(&fw, fw_name, NULL);
 	if (!ret)
 		kfree(fw);
 
@@ -1622,24 +1622,12 @@ static void __device_uncache_fw_images(void)
 static void device_cache_fw_images(void)
 {
 	struct firmware_cache *fwc = &fw_cache;
-	int old_timeout;
 	DEFINE_WAIT(wait);
 
 	pr_debug("%s\n", __func__);
 
 	/* cancel uncache work */
 	cancel_delayed_work_sync(&fwc->work);
-
-	/*
-	 * use small loading timeout for caching devices' firmware
-	 * because all these firmware images have been loaded
-	 * successfully at lease once, also system is ready for
-	 * completing firmware loading now. The maximum size of
-	 * firmware in current distributions is about 2M bytes,
-	 * so 10 secs should be enough.
-	 */
-	old_timeout = loading_timeout;
-	loading_timeout = 10;
 
 	mutex_lock(&fw_lock);
 	fwc->state = FW_LOADER_START_CACHE;
@@ -1648,8 +1636,6 @@ static void device_cache_fw_images(void)
 
 	/* wait for completion of caching firmware for all devices */
 	async_synchronize_full_domain(&fw_cache_domain);
-
-	loading_timeout = old_timeout;
 }
 
 /**
