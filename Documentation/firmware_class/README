@@ -33,7 +33,7 @@
 	than 256, user should pass 'firmware_class.path=$CUSTOMIZED_PATH'
 	if firmware_class is built in kernel(the general situation)
 
- 2), userspace:
+ 2), userspace: (AVOID)
  	- /sys/class/firmware/xxx/{loading,data} appear.
 	- hotplug gets called with a firmware identifier in $FIRMWARE
 	  and the usual hotplug environment.
@@ -41,14 +41,14 @@
 
  3), kernel: Discard any previous partial load.
 
- 4), userspace:
+ 4), userspace: (AVOID)
 		- hotplug: cat appropriate_firmware_image > \
 					/sys/class/firmware/xxx/data
 
  5), kernel: grows a buffer in PAGE_SIZE increments to hold the image as it
 	 comes in.
 
- 6), userspace:
+ 6), userspace: (AVOID)
 		- hotplug: echo 0 > /sys/class/firmware/xxx/loading
 
  7), kernel: request_firmware() returns and the driver has the firmware
@@ -66,8 +66,8 @@
 	 	copy_fw_to_device(fw_entry->data, fw_entry->size);
 	 release_firmware(fw_entry);
 
- Sample/simple hotplug script:
- ============================
+ Sample/simple hotplug script: (AVOID)
+ ==========================================
 
 	# Both $DEVPATH and $FIRMWARE are already provided in the environment.
 
@@ -110,6 +110,32 @@ it should depend on CONFIG_EXTRA_FIRMWARE. There is no current annotation for
 requiring a firmware on initramfs.
 
 If you're a maintainer you can help police this with:
+
+$ export COCCI=scripts/coccinelle/api/request_firmware-avoid-init-probe-init.cocci
+$ make coccicheck MODE=report
+
+Usermode helper
+===============
+
+The firmware API supports a usermode helper that lets userspace fetch and
+hand off firmware to a driver through sysfs. While in theory this was a
+nice feature it also presented many issues, so in practice it should be
+avoided at all costs now.
+
+Only drivers that have a really good reason for a usermode helper should
+use it. This use case must be well documented. You should try really hard
+to avoid it, at all costs.
+
+CONFIG_FW_LOADER_USER_HELPER_FALLBACK: disabled by most distributions now
+CONFIG_FW_LOADER_USER_HELPER: still enabled by most disributions
+
+When CONFIG_FW_LOADER_USER_HELPER_FALLBACK is enabled request_firmware()
+*always* calls the usermode helpers. When CONFIG_FW_LOADER_USER_HELPER is
+enabled, only if you specifically ask for it wil the usermode helper be
+called. If CONFIG_FW_LOADER_USER_HELPER_FALLBACK is disabled drivers can
+still require the usermode helper by using request_firmware_nowait().
+
+To help police for user of the usermode helper you can use:
 
 $ export COCCI=scripts/coccinelle/api/request_firmware-avoid-init-probe-init.cocci
 $ make coccicheck MODE=report
