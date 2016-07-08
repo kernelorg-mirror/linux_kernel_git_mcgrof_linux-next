@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE set PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+	"http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" []>
+<set>
+  <setinfo>
+    <title>Linux section ranges</title>
+    <subtitle>
+      Explains Linux' section ranges.
+    </subtitle>
+
+    <copyright>
+      <year>2016</year>
+      <holder>Luis R. Rodriguez</holder>
+    </copyright>
+
+    <authorgroup>
+      <author>
+        <firstname>Luis</firstname>
+        <surname>Rodriguez</surname>
+        <affiliation>
+          <address><email>mcgrof@kernel.org</email></address>
+        </affiliation>
+      </author>
+    </authorgroup>
+
+    <legalnotice>
+      <para>
+        This program is free software; you can redistribute it and/or modify it
+        under the terms of copyleft-next (version 0.3.1 or later) as published
+        at http://copyleft-next.org/.
+      </para>
+    </legalnotice>
+
+    <abstract>
+      <para>
+        This book documents Linux' use of section ranges, how you can
+        use them and how they work.
+      </para>
+    </abstract>
+  </setinfo>
+  <book id="linux-section-ranges">
+    <bookinfo>
+      <title>Linux section ranges</title>
+
+      <abstract>
+!Pinclude/linux/ranges.h Introduction
+      </abstract>
+    </bookinfo>
+
+      <chapter>
+      <title>About Linker tables</title>
+
+	<sect1>
+	<title>Section range API provenance and userspace testing</title>
+!Pinclude/linux/ranges.h Section range API provenance and userspace testing
+	</sect1>
+
+	<sect1>
+	<title>Section range module support</title>
+!Pinclude/linux/ranges.h Section range module support
+	</sect1>
+
+      </chapter>
+
+      <chapter>
+      <title>Section range helpers</title>
+!Pinclude/linux/ranges.h Section range helpers
+!Finclude/linux/ranges.h DECLARE_SECTION_RNG
+!Finclude/linux/ranges.h DEFINE_SECTION_RANGE
+!Finclude/linux/ranges.h SECTION_ADDR_IN_RANGE
+!Finclude/linux/ranges.h __LINUX_RANGE
+!Finclude/linux/ranges.h __LINUX_RANGE_ORDER
+      </chapter>
+
+  </book>
+</set>
