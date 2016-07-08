@@ -114,6 +114,11 @@ Linux .ref\* sections
 .. kernel-doc:: include/asm-generic/section-core.h
    :doc: .ref.rodata
 
+Linux section ordering
+======================
+.. kernel-doc:: include/asm-generic/section-core.h
+   :doc: Linux section ordering
+
 Generic Linux kernel section helpers
 ====================================
 

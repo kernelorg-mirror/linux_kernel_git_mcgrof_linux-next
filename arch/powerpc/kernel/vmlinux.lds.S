@@ -107,6 +107,7 @@ SECTIONS
 #endif
 		/* careful! __ftr_alt_* sections need to be close to .text */
 		*(.text .fixup __ftr_alt_* .ref.text)
+		*(SORT(.text.rng.*))
 		SCHED_TEXT
 		CPUIDLE_TEXT
 		LOCK_TEXT
