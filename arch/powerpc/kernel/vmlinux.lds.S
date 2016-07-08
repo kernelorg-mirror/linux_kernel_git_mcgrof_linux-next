@@ -92,6 +92,7 @@ SECTIONS
 #endif
 		/* careful! __ftr_alt_* sections need to be close to .text */
 		*(.text.hot .text .text.fixup .text.unlikely .fixup __ftr_alt_* .ref.text);
+		*(SORT(.text.rng.*))
 		SCHED_TEXT
 		CPUIDLE_TEXT
 		LOCK_TEXT
