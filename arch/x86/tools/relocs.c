@@ -68,6 +68,8 @@ static const char * const sym_regex_kernel[S_NSYMTYPES] = {
 	"__end_rodata|"
 	"__initramfs_start|"
 	"(jiffies|jiffies_64)|"
+	".rodata.rng.*|"
+	".init.text.rng.*|"
 #if ELF_BITS == 64
 	"__per_cpu_load|"
 	"init_per_cpu__.*|"
