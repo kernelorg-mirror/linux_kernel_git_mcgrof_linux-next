@@ -183,6 +183,47 @@
  * or data structures part of the init sections.
  */
 
+/**
+ * DOC: Linux section ordering
+ *
+ * Linux may use binutils linker-script 'SORT()' on sections to sort Linux
+ * sections alpha numerically. Linux has historically used 'SORT()' in
+ * ``include/asm-generic/vmlinux.lds.h``, its a well established practice. If
+ * 'SORT()' is used on a section one can provide ordering using a postfix on
+ * each section entry added. For instance if a linker script uses::
+ *
+ *    SORT(.foo.*)
+ *
+ * one can then add entries with explicit ordering using numeric postfixes for
+ * each entry, we refer to these as 'order levels'. Since 'SORT()' sorts alpha
+ * numerically a specific series set of digits must be agreed a-priori which
+ * would give also an idea of the max expected number of entries added to a
+ * section. For instance, if you expect a maximum of 999 entries you can use
+ * 3 digits for a section order level. If you wanted an entry to be ordered
+ * first you could use the postfix '000', if you wanted an entry to follow this
+ * you could use '001', and so on. We could for instance have::
+ *
+ *    .foo.000
+ *    .foo.001
+ *    .foo.002
+ *
+ * Often times one may want the option to specify no order is required for
+ * certain elements added to a section which does use 'SORT()' on the linker
+ * script. You can use any arbitrary string value to to specify no order is
+ * used, so long as its used consistantly. For instance, one possibility is to
+ * use the 'any' postfix.  All entries on the section would then have no
+ * specific ordering::
+ *
+ *    .foo.any
+ *    .foo.any
+ *    .foo.any
+ *
+ * To help establish a convention we reserve the special name 'any' for this
+ * purpose. Developers can use and expect the 'any' postfix string on sections
+ * as a helper to annotate section ordering at link time is not relevant
+ * for entries on a section.
+ */
+
 /* Can be used on foo.S for instance */
 #ifndef __set_section_core_type
 # define __set_section_core_type(___section, ___core, ___name,		\
