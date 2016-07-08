@@ -5194,6 +5194,16 @@ S:	Supported
 F:	drivers/base/power/domain*.c
 F:	include/linux/pm_domain.h
 
+GENERIC SECTION RANGES
+M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
+M:	"H. Peter Anvin" <hpa@zytor.com>
+L:	linux-arch@vger.kernel.org
+L:	linux-kernel@vger.kernel.org
+S:	Supported
+F:	include/asm-generic/ranges.h
+F:	include/linux/ranges.h
+F:	Documentation/sections/ranges.rst
+
 GENERIC SECTIONS
 M:	"Luis R. Rodriguez" <mcgrof@kernel.org>
 M:	Josh Poimboeuf <jpoimboe@redhat.com>
