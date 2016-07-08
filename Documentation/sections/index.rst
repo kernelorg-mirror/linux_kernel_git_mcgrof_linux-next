@@ -9,3 +9,4 @@ used throughout the kernel to help declare and define them.
    :maxdepth: 4
 
    section-core
+   ranges
