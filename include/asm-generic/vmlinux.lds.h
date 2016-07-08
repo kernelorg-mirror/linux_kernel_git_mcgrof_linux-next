@@ -56,6 +56,7 @@
 
 #include <linux/export.h>
 #include <asm/section-core.h>
+#include <asm/ranges.h>
 
 /* Align . to a 8 byte boundary equals to maximum function alignment. */
 #define ALIGN_FUNCTION()  . = ALIGN(8)
@@ -204,7 +205,9 @@
  * pull in .data..stuff which has its own requirements. Same for bss.
  */
 #define DATA_DATA							\
-	*(.data .data.[0-9a-zA-Z_]*)					\
+	*(.data)							\
+	*(SORT(.data.rng.*))						\
+	*(.data.[0-9a-zA-Z_]*)						\
 	*(.ref.data)							\
 	*(.data..shared_aligned) /* percpu related */			\
 	MEM_KEEP(init.data)						\
@@ -273,7 +276,9 @@
 	. = ALIGN((align));						\
 	.rodata           : AT(ADDR(.rodata) - LOAD_OFFSET) {		\
 		VMLINUX_SYMBOL(__start_rodata) = .;			\
-		*(.rodata) *(.rodata.*)					\
+		*(.rodata)						\
+		*(SORT(.rodata.rng.*))					\
+		*(.rodata.*)						\
 		RO_AFTER_INIT_DATA	/* Read only after init */	\
 		*(__vermagic)		/* Kernel version magic */	\
 		. = ALIGN(8);						\
@@ -446,7 +451,9 @@
  * conflicting section names, and must pull in .text.[0-9a-zA-Z_]* */
 #define TEXT_TEXT							\
 		ALIGN_FUNCTION();					\
-		*(.text.hot .text .text.fixup .text.unlikely)		\
+		*(.text.hot .text)					\
+		*(SORT(.text.rng.*))					\
+		*(.text.fixup .text.unlikely)				\
 		*(.ref.text)						\
 	MEM_KEEP(init.text)						\
 	MEM_KEEP(exit.text)						\
@@ -549,6 +556,7 @@
 #define INIT_DATA							\
 	KEEP(*(SORT(___kentry+*)))					\
 	*(.init.data)							\
+	*(SORT(.init.data.rng.*))					\
 	MEM_DISCARD(init.data)						\
 	KERNEL_CTORS()							\
 	MCOUNT_REC()							\
@@ -571,6 +579,7 @@
 
 #define INIT_TEXT							\
 	*(.init.text)							\
+	*(SORT(.init.text.rng.*))					\
 	*(.text.startup)						\
 	MEM_DISCARD(init.text)
 
