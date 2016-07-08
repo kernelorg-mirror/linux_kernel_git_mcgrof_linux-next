@@ -12,3 +12,4 @@ generic-y += syscalls.h
 generic-y += trace_clock.h
 generic-y += word-at-a-time.h
 generic-y += section-core.h
+generic-y += ranges.h
