@@ -44,8 +44,10 @@
 
 #ifdef CONFIG_KPROBES
 #include <linux/ranges.h>
+#include <linux/tables.h>
 
 DECLARE_SECTION_RANGE(kprobes);
+DECLARE_LINKTABLE(unsigned long, _kprobe_blacklist);
 
 /* kprobe_status settings */
 #define KPROBE_HIT_ACTIVE	0x00000001
