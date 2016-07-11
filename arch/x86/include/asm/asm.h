@@ -1,6 +1,8 @@
 #ifndef _ASM_X86_ASM_H
 #define _ASM_X86_ASM_H
 
+#include <asm/tables.h>
+
 #ifdef __ASSEMBLY__
 # define __ASM_FORM(x)	x
 # define __ASM_FORM_RAW(x)     x
@@ -75,7 +77,7 @@
 	_ASM_EXTABLE_HANDLE(from, to, ex_handler_ext)
 
 # define _ASM_NOKPROBE(entry)					\
-	.pushsection "_kprobe_blacklist","aw" ;			\
+	push_section_tbl_any(.init.data, _kprobe_blacklist, aw);\
 	_ASM_ALIGN ;						\
 	_ASM_PTR (entry);					\
 	.popsection
