@@ -9,7 +9,7 @@
 #include <asm/processor.h>
 #include <asm/ppc-opcode.h>
 #include <asm/firmware.h>
-#include <asm/ranges.h>
+#include <asm/tables.h>
 
 #ifdef __ASSEMBLY__
 
@@ -266,7 +266,7 @@ n:
  */
 #ifdef CONFIG_KPROBES
 #define _ASM_NOKPROBE_SYMBOL(entry)			\
-	.pushsection "_kprobe_blacklist","aw";		\
+	push_section_tbl(.init.data, _kprobe_blacklist, any, aw); \
 	PPC_LONG (entry) ;				\
 	.popsection
 #else
