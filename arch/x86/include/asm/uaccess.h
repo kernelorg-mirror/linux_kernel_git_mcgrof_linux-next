@@ -8,6 +8,7 @@
 #include <linux/kasan-checks.h>
 #include <linux/thread_info.h>
 #include <linux/string.h>
+#include <asm/sections.h>
 #include <asm/asm.h>
 #include <asm/page.h>
 #include <asm/smap.h>
@@ -89,23 +90,6 @@ static inline bool __chk_range_not_ok(unsigned long addr, unsigned long size, un
  */
 #define access_ok(type, addr, size) \
 	likely(!__range_not_ok(addr, size, user_addr_max()))
-
-/*
- * The exception table consists of triples of addresses relative to the
- * exception table entry itself. The first address is of an instruction
- * that is allowed to fault, the second is the target at which the program
- * should continue. The third is a handler function to deal with the fault
- * caused by the instruction in the first field.
- *
- * All the routines below use bits of fixup code that are out of line
- * with the main instruction path.  This means when everything is well,
- * we don't even have to jump over them.  Further, they do not intrude
- * on our cache or tlb entries.
- */
-
-struct exception_table_entry {
-	int insn, fixup, handler;
-};
 
 #define ARCH_HAS_RELATIVE_EXTABLE
 
