@@ -1,11 +1,14 @@
 #ifndef _ASM_POWERPC_SECTIONS_H
 #define _ASM_POWERPC_SECTIONS_H
-#ifdef __KERNEL__
 
+#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 #include <linux/elf.h>
 #include <linux/uaccess.h>
+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
+
 #include <asm-generic/sections.h>
 
+#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 #ifdef __powerpc64__
 
 extern char __start_interrupts[];
@@ -75,7 +78,7 @@ static inline void *dereference_function_descriptor(void *ptr)
 }
 #endif /* PPC64_ELF_ABI_v1 */
 
-#endif
+#endif /* __powerpc64__ */
+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 
-#endif /* __KERNEL__ */
 #endif	/* _ASM_POWERPC_SECTIONS_H */
