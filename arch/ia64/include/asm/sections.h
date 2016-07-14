@@ -6,9 +6,12 @@
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  */
 
+#include <asm-generic/sections.h>
+
+#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+
 #include <linux/elf.h>
 #include <linux/uaccess.h>
-#include <asm-generic/sections.h>
 
 extern char __phys_per_cpu_start[];
 #ifdef	CONFIG_SMP
@@ -37,6 +40,6 @@ static inline void *dereference_function_descriptor(void *ptr)
 	return ptr;
 }
 
+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 
 #endif /* _ASM_IA64_SECTIONS_H */
-
