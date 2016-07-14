@@ -7,6 +7,8 @@
 #ifndef _BLACKFIN_SECTIONS_H
 #define _BLACKFIN_SECTIONS_H
 
+#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+
 /* only used when MTD_UCLINUX */
 extern unsigned long memory_mtd_start, memory_mtd_end, mtd_size;
 
@@ -61,6 +63,8 @@ static inline int arch_is_kernel_data(unsigned long addr)
 		 addr <  (unsigned long)_ebss_l2);
 }
 #define arch_is_kernel_data(addr) arch_is_kernel_data(addr)
+
+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 
 #include <asm-generic/sections.h>
 
