@@ -1,6 +1,8 @@
 #ifndef _ASM_GENERIC_SECTIONS_H_
 #define _ASM_GENERIC_SECTIONS_H_
 
+#if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
+
 /* References to section boundaries */
 
 #include <linux/compiler.h>
@@ -127,5 +129,7 @@ static inline bool init_section_intersects(void *virt, size_t size)
 {
 	return memory_intersects(__init_begin, __init_end, virt, size);
 }
+
+#endif /* defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__) */
 
 #endif /* _ASM_GENERIC_SECTIONS_H_ */
