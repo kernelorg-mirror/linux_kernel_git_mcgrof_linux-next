@@ -237,7 +237,7 @@ config CRYPTO_ABLK_HELPER
 	select CRYPTO_CRYPTD
 
 config CRYPTO_GLUE_HELPER_X86
-	tristate
+	bool
 	depends on X86
 	select CRYPTO_ALGAPI
 
