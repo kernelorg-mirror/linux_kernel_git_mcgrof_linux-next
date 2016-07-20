@@ -7844,6 +7844,7 @@ M:	Rusty Russell <rusty@rustcorp.com.au>
 S:	Maintained
 F:	include/linux/module.h
 F:	kernel/module.c
+F:	scripts/module-common.lds.S
 
 MOTION EYE VAIO PICTUREBOOK CAMERA DRIVER
 W:	http://popies.net/meye/
