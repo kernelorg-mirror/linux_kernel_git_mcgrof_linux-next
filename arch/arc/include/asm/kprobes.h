@@ -9,6 +9,8 @@
 #ifndef _ARC_KPROBES_H
 #define _ARC_KPROBES_H
 
+#include <asm-generic/kprobes.h>
+
 #ifdef CONFIG_KPROBES
 
 typedef u16 kprobe_opcode_t;

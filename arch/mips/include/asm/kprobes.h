@@ -28,6 +28,7 @@
 #include <asm/cacheflush.h>
 #include <asm/kdebug.h>
 #include <asm/inst.h>
+#include <asm-generic/kprobes.h>
 
 #define	 __ARCH_WANT_KPROBES_INSN_SLOT
 
