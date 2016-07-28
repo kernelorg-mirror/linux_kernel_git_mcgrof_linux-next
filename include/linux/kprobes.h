@@ -486,13 +486,13 @@ static inline int enable_jprobe(struct jprobe *jp)
  * Blacklist ganerating macro. Specify functions which is not probed
  * by using this macro.
  */
-#define __NOKPROBE_SYMBOL(fname)			\
+# define __NOKPROBE_SYMBOL(fname)			\
 static unsigned long __used				\
 	__attribute__((section("_kprobe_blacklist")))	\
 	_kbl_addr_##fname = (unsigned long)fname;
-#define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
+# define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
 #else
-#define NOKPROBE_SYMBOL(fname)
+# define NOKPROBE_SYMBOL(fname)
 #endif
 
 #endif /* _LINUX_KPROBES_H */
