@@ -23,6 +23,10 @@
  * 2005-Apr     Rusty Lynch <rusty.lynch@intel.com> and Anil S Keshavamurthy
  *              <anil.s.keshavamurthy@intel.com> adapted from i386
  */
+#include <asm-generic/kprobes.h>
+
+#ifdef CONFIG_KPROBES
+
 #include <linux/types.h>
 #include <linux/ptrace.h>
 #include <linux/percpu.h>
@@ -124,4 +128,5 @@ extern void invalidate_stacked_regs(void);
 extern void flush_register_stack(void);
 extern void arch_remove_kprobe(struct kprobe *p);
 
-#endif				/* _ASM_KPROBES_H */
+#endif /* CONFIG_KPROBES */
+#endif /* _ASM_KPROBES_H */
