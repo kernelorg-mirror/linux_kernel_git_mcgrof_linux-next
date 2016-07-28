@@ -1,6 +1,8 @@
 #ifndef __ASM_SH_KPROBES_H
 #define __ASM_SH_KPROBES_H
 
+#include <asm-generic/kprobes.h>
+
 #ifdef CONFIG_KPROBES
 
 #include <linux/types.h>
@@ -54,4 +56,5 @@ extern int kprobe_handle_illslot(unsigned long pc);
 #define kprobe_handle_illslot(pc)	(-1)
 
 #endif /* CONFIG_KPROBES */
+
 #endif /* __ASM_SH_KPROBES_H */
