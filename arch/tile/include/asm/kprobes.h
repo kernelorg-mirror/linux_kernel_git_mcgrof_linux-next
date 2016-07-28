@@ -22,6 +22,7 @@
 #include <linux/percpu.h>
 
 #include <arch/opcode.h>
+#include <asm-generic/kprobes.h>
 
 #define __ARCH_WANT_KPROBES_INSN_SLOT
 #define MAX_INSN_SIZE			2
