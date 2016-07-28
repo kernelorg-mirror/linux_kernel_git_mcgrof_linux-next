@@ -491,8 +491,13 @@ static unsigned long __used				\
 	__attribute__((section("_kprobe_blacklist")))	\
 	_kbl_addr_##fname = (unsigned long)fname;
 # define NOKPROBE_SYMBOL(fname)	__NOKPROBE_SYMBOL(fname)
+/* Use this to forbid a kprobes attach on very low level functions */
+# define __kprobes	__attribute__((__section__(".kprobes.text")))
+# define nokprobe_inline	__always_inline
 #else
 # define NOKPROBE_SYMBOL(fname)
+# define __kprobes
+# define nokprobe_inline	inline
 #endif
 
 #endif /* _LINUX_KPROBES_H */
