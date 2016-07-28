@@ -23,6 +23,7 @@
 
 #include <linux/types.h>
 #include <linux/ptrace.h>
+#include <asm-generic/kprobes.h>
 
 struct kprobe;
 

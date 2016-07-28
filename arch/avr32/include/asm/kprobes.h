@@ -12,6 +12,7 @@
 #define __ASM_AVR32_KPROBES_H
 
 #include <linux/types.h>
+#include <asm-generic/kprobes.h>
 
 typedef u16	kprobe_opcode_t;
 #define BREAKPOINT_INSTRUCTION	0xd673	/* breakpoint */

@@ -3,6 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/percpu.h>
+#include <asm-generic/kprobes.h>
 
 typedef u32 kprobe_opcode_t;
 
