@@ -11,6 +11,9 @@
 #ifndef __ASM_AVR32_KPROBES_H
 #define __ASM_AVR32_KPROBES_H
 
+#include <asm-generic/kprobes.h>
+
+#ifdef CONFIG_KPROBES
 #include <linux/types.h>
 
 typedef u16	kprobe_opcode_t;
@@ -46,4 +49,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
 
 #define flush_insn_slot(p)	do { } while (0)
 
+#endif /* CONFIG_KPROBES */
 #endif /* __ASM_AVR32_KPROBES_H */
