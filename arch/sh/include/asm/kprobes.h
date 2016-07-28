@@ -1,6 +1,8 @@
 #ifndef __ASM_SH_KPROBES_H
 #define __ASM_SH_KPROBES_H
 
+#include <asm-generic/kprobes.h>
+
 #ifdef CONFIG_KPROBES
 
 #include <linux/types.h>
