@@ -14,3 +14,4 @@ generic-y += word-at-a-time.h
 generic-y += section-core.h
 generic-y += ranges.h
 generic-y += tables.h
+generic-y += kprobes.h
