@@ -21,6 +21,10 @@
  *
  * See arch/x86/kernel/kprobes.c for x86 kprobes history.
  */
+
+#include <asm-generic/kprobes.h>
+
+#ifdef CONFIG_KPROBES
 #include <linux/types.h>
 #include <linux/ptrace.h>
 #include <linux/percpu.h>
@@ -116,4 +120,6 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
 				    unsigned long val, void *data);
 extern int kprobe_int3_handler(struct pt_regs *regs);
 extern int kprobe_debug_handler(struct pt_regs *regs);
+
+#endif /* CONFIG_KPROBES */
 #endif /* _ASM_X86_KPROBES_H */

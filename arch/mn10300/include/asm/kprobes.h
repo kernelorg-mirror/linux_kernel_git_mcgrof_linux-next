@@ -21,6 +21,9 @@
 #ifndef _ASM_KPROBES_H
 #define _ASM_KPROBES_H
 
+#include <asm-generic/kprobes.h>
+
+#ifdef CONFIG_KPROBES
 #include <linux/types.h>
 #include <linux/ptrace.h>
 
@@ -47,4 +50,5 @@ extern int kprobe_exceptions_notify(struct notifier_block *self,
 
 extern void arch_remove_kprobe(struct kprobe *p);
 
+#endif /* CONFIG_KPROBES */
 #endif /* _ASM_KPROBES_H */

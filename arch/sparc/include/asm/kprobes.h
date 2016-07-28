@@ -1,6 +1,9 @@
 #ifndef _SPARC64_KPROBES_H
 #define _SPARC64_KPROBES_H
 
+#include <asm-generic/kprobes.h>
+
+#ifdef CONFIG_KPROBES
 #include <linux/types.h>
 #include <linux/percpu.h>
 
@@ -48,4 +51,6 @@ int kprobe_exceptions_notify(struct notifier_block *self,
 int kprobe_fault_handler(struct pt_regs *regs, int trapnr);
 asmlinkage void __kprobes kprobe_trap(unsigned long trap_level,
 				      struct pt_regs *regs);
+
+#endif /* CONFIG_KPROBES */
 #endif /* _SPARC64_KPROBES_H */
