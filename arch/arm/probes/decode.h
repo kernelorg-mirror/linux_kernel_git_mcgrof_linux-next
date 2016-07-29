@@ -21,6 +21,7 @@
 
 #include <linux/types.h>
 #include <linux/stddef.h>
+#include <linux/kprobes.h>
 #include <asm/probes.h>
 
 void __init arm_probes_decode_init(void);
