@@ -7,6 +7,14 @@
 #ifndef _BLACKFIN_SECTIONS_H
 #define _BLACKFIN_SECTIONS_H
 
+#ifdef LINKER_SCRIPT
+# define __FIX_SECTION_REF(__section)					\
+	_##__section = __##__section;					\
+	##__section = _##__section;					\
+	_##__section##__end = __##__section##__end;			\
+	##__section##__end = _##__section##__end
+#endif /* LINKER_SCRIPT */
+
 #if defined(__KERNEL__) && !defined(__ASSEMBLER__) && !defined(__ASSEMBLY__)
 
 /* only used when MTD_UCLINUX */
