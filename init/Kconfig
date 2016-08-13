@@ -53,6 +53,43 @@ config CROSS_COMPILE
 	  need to set this unless you want the configured kernel build
 	  directory to select the cross-compiler automatically.
 
+config BUILD_AVOID_BITROT
+	bool "Always force building specially annotated targets"
+	default n
+	help
+	  If enabled then the special force-* Makefile targets will always be
+	  compiled even if their respective CONFIG_ option has been disabled,
+	  but its objects will only be linked in if the same respective CONFIG_
+	  option has been enabled. Use for these targets should be carefully
+	  considered by maintainers. You can safely enable this option at the
+	  expense of increasing compile time.
+
+	  This option is designed to help maintainers enable users or
+	  developers test more build configurations with less Kconfig
+	  change requirements. Enabling this option enables maintainers to try
+	  to avoid code bit rot for specially considered targets.
+
+	  Certain development techniques are available to enable code to
+	  compile safely whether or not it is enabled via Kconfig.
+	  One such features it the use of linker tables, documented
+	  under:
+
+	  include/linux/tables.h
+
+	  To force code to always compile but only be linked in when
+	  the respective Kconfig option has been enabled, the following
+	  special targets are supported:
+
+	    o force-obj-y
+	    o force-lib-y
+
+	  Say Y if you have a decent build machine and would like to help test
+	  building code for more subsystems. Say N if you do you not have a
+	  good build machine or only want to compile what you've enabled for
+	  your kernel.
+
+	  Enabling this option never increases the size of your kernel.
+
 config COMPILE_TEST
 	bool "Compile also drivers which will not load"
 	depends on !UML
