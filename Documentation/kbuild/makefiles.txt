@@ -1089,6 +1089,42 @@ When kbuild executes, the following steps are followed (roughly):
 	In this example, extra-y is used to list object files that
 	shall be built, but shall not be linked as part of built-in.o.
 
+    force-obj-y force-lib-y
+
+	When CONFIG_BUILD_AVOID_BITROT is enabled using these targets for your
+	kconfig symbols forces compilation of the associated objects if the
+	kconfig's symbol's dependencies are met, the objects however are only
+	linked into to the kernel if and only if the kconfig symbol was
+	enabled. If CONFIG_BUILD_AVOID_BITROT is disabled the force-obj-y and
+	force-lib-y targets are functionally equilvalent to obj-y and lib-y
+	respectively.
+
+	Using force-obj-y and force-lib-y are part of a code architecture and
+	build philosophy further enabled by linker tables, for more details
+	refer to the documention in include/linux/tables.h, refer to the
+	sections:
+
+		o The code bit-rot problem
+		o The build-all selective-link philosophy
+		o Avoiding the code bit-rot problem with linker tables
+		o Linker table module support
+
+	Modules support is expected to be enhanced in the future, so for now
+	only built-in features are supported.
+
+	Example use:
+
+		force-obj-$(CONFIG_FEATURE_FOO) += foo.o
+
+	An alternative to using force-obj-y, is to use extra-y followed by the
+	respective obj-y:
+
+		extra-y += foo.o
+		obj-$(CONFIG_FEATURE_FOO) += foo.o
+
+	Using force-obj-y and force-lib-y can be used to help annotate the
+	targets follow the 'build-all selective-link philosophy' further
+	enabled by linker tables.
 
 --- 6.7 Commands useful for building a boot image
 
