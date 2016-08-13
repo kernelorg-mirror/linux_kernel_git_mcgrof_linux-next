@@ -36,6 +36,8 @@ subdir-ymn	:= $(addprefix $(obj)/,$(subdir-ymn))
 # directory
 
 __clean-files	:= $(extra-y) $(extra-m) $(extra-)       \
+		   $(force-obj-y) $(force-obj-m) $(force-obj-)       \
+		   $(force-lib-y) $(force-lib-m) $(force-lib-)       \
 		   $(always) $(targets) $(clean-files)   \
 		   $(host-progs)                         \
 		   $(hostprogs-y) $(hostprogs-m) $(hostprogs-) \
