@@ -1,0 +1,27 @@
+Linux linker table userspace sandbox
+====================================
+
+This is a userspace sandbox to allow easy experimentation and
+test extensions with linker tables. It tries to mimic the Linux
+kernel development flow as much as possible, it however relies
+on and uses libc.
+
+Compile
+=======
+
+Run:
+	make
+
+Simulated boots
+==============
+
+This programs simulates boot on both bare metal and with the
+Xen PV entry on x86.
+
+Emulate bare metal boot:
+
+./demo
+
+Emulate Xen boot (x86):
+
+./demo -x
