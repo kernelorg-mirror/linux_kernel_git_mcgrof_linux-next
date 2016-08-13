@@ -11,11 +11,11 @@ About Linker tables
 .. kernel-doc:: include/linux/tables.h
    :doc: Introduction
 
-Linker table provenance
+Linker table provenance and userspace testing
 ---------------------------------------------
 
 .. kernel-doc:: include/linux/tables.h
-   :doc: Linker table provenance
+   :doc: Linker table provenance and userspace testing
 
 Benefits of using Linker tables
 ===============================

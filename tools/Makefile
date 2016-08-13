@@ -20,6 +20,7 @@ help:
 	@echo '  leds                   - LEDs  tools'
 	@echo '  lguest                 - a minimal 32-bit x86 hypervisor'
 	@echo '  liblockdep             - user-space wrapper for kernel locking-validator'
+	@echo '  linker-tables		- userspace liker table sandbox and related tools'
 	@echo '  net                    - misc networking tools'
 	@echo '  perf                   - Linux performance measurement and analysis tool'
 	@echo '  selftests              - various kernel selftests'
@@ -93,7 +94,7 @@ kvm_stat: FORCE
 all: acpi cgroup cpupower gpio hv firewire lguest liblockdep \
 		perf selftests turbostat usb \
 		virtio vm net x86_energy_perf_policy \
-		tmon freefall objtool kvm_stat
+		tmon freefall objtool kvm_stat linker-tables
 
 acpi_install:
 	$(call descend,power/$(@:_install=),install)
