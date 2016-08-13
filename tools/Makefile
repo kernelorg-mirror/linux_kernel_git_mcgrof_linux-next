@@ -18,6 +18,7 @@ help:
 	@echo '  iio                    - IIO tools'
 	@echo '  kvm_stat               - top-like utility for displaying kvm statistics'
 	@echo '  lguest                 - a minimal 32-bit x86 hypervisor'
+	@echo '  linker-tables		- userspace liker table sandbox and related tools'
 	@echo '  net                    - misc networking tools'
 	@echo '  perf                   - Linux performance measurement and analysis tool'
 	@echo '  selftests              - various kernel selftests'
@@ -85,7 +86,7 @@ tmon: FORCE
 freefall: FORCE
 	$(call descend,laptop/$@)
 
-all: acpi cgroup cpupower gpio hv firewire lguest \
+all: acpi cgroup cpupower gpio hv firewire lguest linker-tables \
 		perf selftests turbostat usb \
 		virtio vm net x86_energy_perf_policy \
 		tmon freefall objtool

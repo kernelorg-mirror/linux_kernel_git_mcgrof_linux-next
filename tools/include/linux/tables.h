@@ -169,75 +169,86 @@
  *	}
  */
 
+
 /**
  * DOC: The code bit-rot problem
  *
- * Linux provides a rich array of features, enabling each feature
- * however increases the size of the kernel and there are many
- * features which users often want disabled. The traditional
- * solution to this problem is for each feature to have its own
- * Kconfig symbol, followed by a series of #ifdef statements
- * in C code and header files, allowing the feature to be compiled
- * only when desirable. As the variability of Linux increases build
- * tests can and are often done with random kernel configurations,
- * allyesconfig, and allmodconfig to help find code issues. This
- * however doesn't catch all errors and as a consequence code that
- * is typically not enabled often can suffer from bit-rot over time.
+ * Overuse of C #ifdefs can be problematic for certain types of code.  Linux
+ * provides a rich array of features, but all these features take up valuable
+ * space in a kernel image. The traditional solution to this problem has been
+ * for each feature to have its own Kconfig entry and for the respective code
+ * to be wrapped around #ifdefs, allowing the feature to be compiled in only
+ * if enabled in Kconfig.
+ *
+ * The problem with this is that over time it becomes very difficult and time
+ * consuming to compile, let alone test all possible Kconfig configurations.
+ * Code that is not typically used tends to suffer from bit-rot over time. It
+ * can become difficult to predict which combinations of compile-time options
+ * will result in code that can compile and link correctly.
  */
 
 /**
- * DOC: The build-all selective-link philosophy
+ * DOC: Avoiding the code bit-rot problem when desirable
  *
- * A code architecture philosophy to help avoid code bit-rot consists
- * of using Kconfig symbols for each subsystem feature, replace all #ifdefs
- * by instead having each feature implemented it its own C file, and force
- * compilation for all features. Only features that are enabled get linked in,
- * the forced compilation therefore has no size impact on the final result of
- * the kernel. The practice of having each feature implemented in its own C
- * file is already prevalent in many subsystems, however #ifdefs are still
- * typically required during feature initialization. For instance in::
+ * Linker tables can be used as one way to help solve the code bit-rot problem,
+ * and in turn diminish Kconfig complexity.  To use linker tables and to
+ * optionally take advantage of avoiding code bit-rot, feature code should be
+ * implemented in separate C files, and should be designed to always be
+ * compiled -- they should not be guarded with C code ``#ifdef CONFIG_FOO``
+ * statements, consideration must also be taken for sub-features which depend
+ * on the main ``CONFIG_FOO`` option, as they will be disabled if they depend
+ * on ``CONFIG_FOO`` and therefore not compiled.
  *
- *	#ifdef CONFIG_FOO
- *	foo_init();
- *	#endif
+ * To take advantage of this feature enable ``CONFIG_BUILD_AVOID_BITROT``, and
+ * use special targets for your code. Either ``force-obj-y`` or ``force-lib-y``
+ * can be used for your code instead of ``obj-y`` and ``lib-y``, respectively.
+ * Without ``CONFIG_BUILD_AVOID_BITROT`` enabled these targets will work just
+ * as their respective ``obj-y`` and ``lib-y`` counters work.  When
+ * ``CONFIG_BUILD_AVOID_BITROT`` is enabled the code with the special targets
+ * will always compile, even if the respective Kconfig entry for the code in
+ * question has been disabled, this code however will only be linked in to the
+ * final kernel image if the Kconfig entry for the code was enabled.
  *
- * We cannot remove the #ifdef and leave foo_init() as we'd either
- * need to always enable the feature or add a respective #ifdef in a
- * foo.h which makes foo_init() do nothing when ``CONFIG_FOO`` is disabled.
+ * Currently only built-in features are supported, modular support is not
+ * yet supported, however you can make use of sub-features for modules
+ * if they are independent and can simply be linked into modules.
+ *
+ * Care should be taken to vet that the code using this feature may also work
+ * without ``CONFIG_BUILD_AVOID_BITROT``, otherwise it must depend on
+ * CONFIG_BUILD_AVOID_BITROT.
  */
 
 /**
- * DOC: Avoiding the code bit-rot problem with linker tables
+ * DOC: Using target force-obj-y and force-lib-y
  *
- * Linker tables can be used to further help avoid the code bit-rot problem
- * when embracing the 'build-all selective-link philosophy' by lifting the
- * requirement to use of #ifdefs during initialization. With linker tables
- * initialization sequences can be aggregated into a custom ELF section at
- * link time, during run time the table can be iterated over and each init
- * sequence enabled can be called. A feature's init routine is only added to a
- * table when its respective Kconfig symbols has been enabled and therefore
- * linked in. Linker tables enable subsystems to completely do away with
- * #ifdefs if one is comfortable in accepting all subsystem's feature's
- * structural size implications.
+ * Let's assume we want to always force compilation of feature ``FOO`` in the
+ * kernel but avoid linking it. When you enable the ``FOO`` feature via Kconfig
+ * you'd end up with::
  *
- * To further help with this the Linux build system supports two special
- * targets, ``force-obj-y`` and ``force-lib-y``. A subsystem which wants to
- * follow the 'build-all selective-link philosophy' can use these targets for a
- * feature's kconfig symbol. Using these targets will always require
- * compilation of the kconfig's objects if the kconfig symbol's dependencies
- * are met but only link the objects into the kernel, and therefore enable the
- * feature, if and only if the kconfig symbol has been enabled.
+ *	#define CONFIG_FOO 1
  *
- * Not all users or build systems may want to opt-in to compile all objects
- * following the 'build-all selective-link philosophy', as such the targets
- * ``force-obj-y`` and ``force-lib-y`` only force compilation when the kconfig
- * symbol ``CONFIG_BUILD_AVOID_BITROT`` has been enabled. Disabling this feature
- * makes ``force-obj-y`` and ``force-lib-y`` functionally equivalent to
- * ``obj-y`` and ``lib-y`` respectively.
+ * You typically would then just use this in your Makefile to selectively
+ * compile and link the feature::
  *
- * Example use::
+ *	obj-$(CONFIG_FOO) += foo.o
  *
- * 	force-obj-$(CONFIG_FEATURE_FOO) += foo.o
+ * You could instead optionally use the new linker table target object::
+ *
+ *	force-obj-$(CONFIG_FOO) += foo.o
+ *
+ * Alternatively, this would be the equivalent of listing::
+ *
+ *	extra += foo.o
+ *	obj-$(CONFIG_FOO) += foo.o
+ *
+ * Both are mechanisms which can be used to take advantage of forcing
+ * compilation with linker tables, however making use of::
+ *
+ *	force-obj-$(CONFIG_FOO)
+ *
+ * is encouraged as it helps with annotating linker tables clearly where
+ * compilation is forced. The ``force-lib-y`` target is the equivalent for
+ * ``lib-y`` targets.
  */
 
 /**
@@ -250,6 +261,20 @@
  * and module-common.lds.S are updated accordingly with a respective
  * module notifier to account for updates. This restriction may be enhanced
  * in the future.
+ */
+
+/**
+ * DOC: Opting out of forcing compilation
+ *
+ * If you want to opt-out of forcing compilation simply disable
+ * ``CONFIG_BUILD_AVOID_BITROT``.  Alternatively if your kernel configuration
+ * has it and you must have it enabled and you want to opt-out of forcing
+ * compilation you would use the typical ``obj-$(CONFIG_FOO) += foo.o`` and
+ * ``foo.o`` will only be compiled and linked in when ``CONFIG_FOO`` enabled.
+ * Using both ``force-obj-$(CONFIG_FOO)`` and ``obj-($CONFIG_FOO)`` will result
+ * with the feature on your binary only if you've enabled ``CONFIG_FOO``,
+ * however using ``force-obj-$(CONFIG_FOO)`` will always force compilation if
+ * ``CONFIG_BUILD_AVOID_BITROT`` has been enabled.
  */
 
 /**
@@ -299,7 +324,7 @@
  * Constructs a weak linker table for data.
  */
 #define LINKTABLE_WEAK(name, level)					\
-	      __typeof__(VMLINUX_SYMBOL(name)[0])			\
+	      __typeof__(VMLINUX_SYMBOL(name)[0])					\
 	      __attribute__((used,					\
 			     weak,					\
 			     __aligned__(LINUX_SECTION_ALIGNMENT(name)),\
