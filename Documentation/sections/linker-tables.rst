@@ -30,6 +30,21 @@ How linker tables simplify initialization code
 .. kernel-doc:: include/linux/tables.h
    :doc: How linker tables simplify initialization code
 
+The code bit-rot problem
+------------------------
+.. kernel-doc:: include/linux/tables.h
+   :doc: The code bit-rot problem
+
+The build-all selective-link philosophy
+---------------------------------------
+.. kernel-doc:: include/linux/tables.h
+   :doc: The build-all selective-link philosophy
+
+Avoiding the code bit-rot problem with linker tables
+----------------------------------------------------
+.. kernel-doc:: include/linux/tables.h
+   :doc: Avoiding the code bit-rot problem with linker tables
+
 Using linker tables in Linux
 ============================
 
