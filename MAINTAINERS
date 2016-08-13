@@ -5429,6 +5429,7 @@ L:	linux-kernel@vger.kernel.org
 S:	Supported
 F:	include/asm-generic/tables.h
 F:	include/linux/tables.h
+F:	tools/linker-tables/
 F:	Documentation/sections/linker-tables.rst
 
 GENERIC PHY FRAMEWORK
