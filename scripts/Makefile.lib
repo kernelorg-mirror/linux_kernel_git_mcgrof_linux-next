@@ -12,6 +12,15 @@ export KBUILD_SUBDIR_CCFLAGS := $(KBUILD_SUBDIR_CCFLAGS) $(subdir-ccflags-y)
 # Figure out what we need to build from the various variables
 # ===========================================================================
 
+ifeq ($(CONFIG_BUILD_AVOID_BITROT),y)
+extra-y += $(force-obj-) $(force-lib-)
+endif
+
+obj-m += $(force-obj-m)
+obj-y += $(force-obj-y)
+lib-m += $(force-lib-m)
+lib-y += $(force-lib-y)
+
 # When an object is listed to be built compiled-in and modular,
 # only build the compiled-in version
 
@@ -72,6 +81,8 @@ real-objs-m := $(foreach m, $(obj-m), $(if $(strip $($(m:.o=-objs)) $($(m:.o=-y)
 # Add subdir path
 
 extra-y		:= $(addprefix $(obj)/,$(extra-y))
+force-obj-y		:= $(addprefix $(obj)/,$(force-obj-y))
+force-obj-m		:= $(addprefix $(obj)/,$(force-obj-m))
 always		:= $(addprefix $(obj)/,$(always))
 targets		:= $(addprefix $(obj)/,$(targets))
 modorder	:= $(addprefix $(obj)/,$(modorder))
