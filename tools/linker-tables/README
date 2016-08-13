@@ -1,0 +1,114 @@
+Linux linker table userspace sandbox
+====================================
+
+This is a userspace sandbox to allow easy experimentation and
+test extensions with linker tables. It tries to mimic the Linux
+kernel development flow as much as possible, it however relies
+on and uses libc and is nothing but a simple stupid userspace
+application demo.
+
+You can use the sandbox to modify the kernel's linker table
+solution or add use it in creative ways without having to run
+qemu with a real kernel or user mode linux. You can simply try
+to extend this sandbox as you would for a regular userspace
+application.
+
+History
+=======
+
+This was hacked on first in an external repository, that tree has
+the full set of history of how this work came about. Refer to that
+tree for more details if you are interested in the logic used for
+a lot of decisions made for linker tables:
+
+https://git.kernel.org/cgit/linux/kernel/git/mcgrof/linker-tables.git/
+
+This tree is discontinued now in favor of an upstream solution which
+is kept in sync with the kernel.
+
+Compile
+=======
+
+Run:
+	make
+
+Clean:
+	make clean
+
+If you need to get object files outside of the source tree:
+
+	make OUTPUT=/tmp/path/
+	make OUTPUT=/tmp/path/ clean
+
+Supported architectures
+=======================
+
+x86_64
+
+Currently only x86_64 is supported for the demo. It should be
+relatively easy to add more. To add a new architecture you need
+a toolchain available with libc. You then need to generate a
+respective base template custom linker script for userspace
+as is provided on x86 in arch/x86/kernel/vmlinux.lds.S.
+
+A respective architecture tools/arch/$(ARCH)/include/* file for
+each section-core.h, ranges.h, tables.h will need to be provided
+as well. If your architecture's file is generated copy the generated
+file over.
+
+x86 Simulated boots
+===================
+
+This programs simulates boot on both bare metal and with the
+Xen PV entry on x86.
+
+Emulate bare metal boot:
+
+./demo
+
+Emulate Xen boot (x86):
+
+./demo -x
+
+Testing new features
+====================
+
+A copy of each kernel header file is maintained in tools/include/,
+as well as a respective generated asm file for each sandbox supported
+architecture. This sandbox has a built in checker for when these files
+get out of sync.
+
+If testing new extensions on the files:
+
+  o section-core
+  o ranges.h
+  o tables.h
+
+You'll want to copy them into tools as well. If you are working on
+using these files you can work within the current directory's namespace,
+including its own set of header files, so tools/linker-tables/include/ and
+each respective tools/linker-tables/arch/$(ARCH)/include/asm/.
+
+Features evaluation
+===================
+
+This lists features currently being evaluated in the sandbox, not yet
+present upstream. These make use of the existing set of header files
+without modification.
+
+ o Demo use of initialization on for x86, refer to arch/x86/kernel/init.c
+
+ o Demo use of porting the kernel's init call levels to linker tables, refer
+   to the init_calls linker table use on kernel/main.c
+
+ o Demo use of an asm-generic architecture init family, which could potentially
+   be used to help share initialization sequences on simple architectures.
+   Refer to include/asm-generic/arch_init_fn.h
+
+ o Building synthetic routines with the option to provide enhancements
+   per architecture in asm, refer to drivers/synth/or.S and its use on
+   synth_init_or().
+
+ o User of linker tables for alternatives with consts - refer to
+   use of the ps_set_const_table linker table and its use in
+   arch/x86/kernel/alternative.c
