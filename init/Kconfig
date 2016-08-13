@@ -53,6 +53,28 @@ config CROSS_COMPILE
 	  need to set this unless you want the configured kernel build
 	  directory to select the cross-compiler automatically.
 
+config BUILD_AVOID_BITROT
+	bool "Enable force building of force-obj-y and force-lib-y"
+	default n
+	help
+	  When enabled objects under the force-obj-y and force-lib-y targets
+	  using a Kconfig symbol will be forced to compile if the Kconfig
+	  symbol's dependencies are met. If a Kconfig symbol on a force-obj-y
+	  or force-lib-y target is disabled, it will be compiled but not linked
+	  into the kernel.
+
+	  The force-obj-y and force-lib-y targets can be used by subsystems
+	  wishing to avoid code bit rot caused by use of #ifdef on features.
+	  For more details refer the force-obj-y force-lib-y documentation
+	  under: Documentation/kbuild/makefiles.txt
+
+	  Say Y if you have a decent build machine and would like to help test
+	  building code for more subsystems. Say N if you do you not have a
+	  good build machine or only want to compile what you've enabled for
+	  your kernel.
+
+	  Enabling this option never increases the size of your kernel.
+
 config COMPILE_TEST
 	bool "Compile also drivers which will not load"
 	depends on !UML

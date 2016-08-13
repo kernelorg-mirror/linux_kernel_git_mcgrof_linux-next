@@ -1089,6 +1089,64 @@ When kbuild executes, the following steps are followed (roughly):
 	In this example, extra-y is used to list object files that
 	shall be built, but shall not be linked as part of built-in.o.
 
+    force-obj-y force-lib-y
+
+	Linux provides a rich array of features, enabling each feature
+	however increases the size of the kernel and there are many
+	features which users often want disabled. The traditional
+	solution to this problem is for each feature to have its own
+	Kconfig symbol, followed by a series of #ifdef statements
+	in C code and header files, allowing the feature to be compiled
+	only when desirable. As the variability of Linux increases build
+	tests can and are often done with random kernel configurations,
+	allyesconfig, and allmodconfig to help find code issues. This
+	however doesn't catch all errors and as a consequence code that
+	is typically not enabled often can suffer from bit-rot over time.
+
+	An alternative approach for subsystems is to keep the Kconfig
+	symbols, replace the #ifdef approach by having each feature
+	implemented it its own C file, and force compilation for all
+	features to avoid the code bit-rot problem. Only features that
+	are enabled get linked in, so the forced compilation has no
+	size impact on the kernel. The practice of having each feature
+	implemented in its own C file is already prevalent in many
+	subsystems, however #ifdefs are still typically required during
+	feature initialization. For instance in:
+
+	#ifdef CONFIG_FOO
+	foo_init();
+	#endif
+
+	We cannot remove the #ifdef and leave foo_init() as we'd either
+	need to always enable the feature or add a respective #ifdef in a
+	foo.h which makes foo_init() do nothing when CONFIG_FOO is disabled.
+
+	Linker tables (include/linux/tables.h) enable lifting the requirement
+	to use of #ifdefs during initialization. With linker tables
+	initialization sequences can instead be aggregated into a custom
+	ELF section at link time, during run time the table is iterated over
+	and each init sequence enabled is called. A feature's init routine is
+	only added to a table when its respective Kconfig symbols has been
+	enabled and therefore linked in. Linker tables enable subsystems
+	to completely do away with #ifdefs if one is comfortable in accepting
+	all subsystem's feature's structural size implications.
+
+	The force-obj-y and force-lib-y targets can be used by subsystems to
+	require compilation of objects under these targets. Forced compilation
+	of objets under force-obj-y and force-lib-y targets is only enabled
+	when CONFIG_BUILD_AVOID_BITROT is enabled. Modules are currently not
+	suppported due to the limitation of a generic facility to easily add
+	linker tables inside modules. This limitation may be lifted in the
+	future.
+
+	Example:
+		force-obj-$(CONFIG_FEATURE_FOO) += foo.o
+
+	An alternative to using force-obj-y, is to use extra-y followed by the
+	respective obj-y:
+
+		extra-y += foo.o
+		obj-$(CONFIG_FEATURE_FOO) += foo.o
 
 --- 6.7 Commands useful for building a boot image
 
