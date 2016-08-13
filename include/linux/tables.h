@@ -169,6 +169,77 @@
  */
 
 /**
+ * DOC: The code bit-rot problem
+ *
+ * Linux provides a rich array of features, enabling each feature
+ * however increases the size of the kernel and there are many
+ * features which users often want disabled. The traditional
+ * solution to this problem is for each feature to have its own
+ * Kconfig symbol, followed by a series of #ifdef statements
+ * in C code and header files, allowing the feature to be compiled
+ * only when desirable. As the variability of Linux increases build
+ * tests can and are often done with random kernel configurations,
+ * allyesconfig, and allmodconfig to help find code issues. This
+ * however doesn't catch all errors and as a consequence code that
+ * is typically not enabled often can suffer from bit-rot over time.
+ */
+
+/**
+ * DOC: The build-all selective-link philosophy
+ *
+ * A code architecture philosophy to help avoid code bit-rot consists
+ * of using Kconfig symbols for each subsystem feature, replace all #ifdefs
+ * by instead having each feature implemented it its own C file, and force
+ * compilation for all features. Only features that are enabled get linked in,
+ * the forced compilation therefore has no size impact on the final result of
+ * the kernel. The practice of having each feature implemented in its own C
+ * file is already prevalent in many subsystems, however #ifdefs are still
+ * typically required during feature initialization. For instance in::
+ *
+ *	#ifdef CONFIG_FOO
+ *	foo_init();
+ *	#endif
+ *
+ * We cannot remove the #ifdef and leave foo_init() as we'd either
+ * need to always enable the feature or add a respective #ifdef in a
+ * foo.h which makes foo_init() do nothing when ``CONFIG_FOO`` is disabled.
+ */
+
+/**
+ * DOC: Avoiding the code bit-rot problem with linker tables
+ *
+ * Linker tables can be used to further help avoid the code bit-rot problem
+ * when embracing the 'build-all selective-link philosophy' by lifting the
+ * requirement to use of #ifdefs during initialization. With linker tables
+ * initialization sequences can be aggregated into a custom ELF section at
+ * link time, during run time the table can be iterated over and each init
+ * sequence enabled can be called. A feature's init routine is only added to a
+ * table when its respective Kconfig symbols has been enabled and therefore
+ * linked in. Linker tables enable subsystems to completely do away with
+ * #ifdefs if one is comfortable in accepting all subsystem's feature's
+ * structural size implications.
+ *
+ * To further help with this the Linux build system supports two special
+ * targets, ``force-obj-y`` and ``force-lib-y``. A subsystem which wants to
+ * follow the 'build-all selective-link philosophy' can use these targets for a
+ * feature's kconfig symbol. Using these targets will always require
+ * compilation of the kconfig's objects if the kconfig symbol's dependencies
+ * are met but only link the objects into the kernel, and therefore enable the
+ * feature, if and only if the kconfig symbol has been enabled.
+ *
+ * Not all users or build systems may want to opt-in to compile all objects
+ * following the 'build-all selective-link philosophy', as such the targets
+ * ``force-obj-y`` and ``force-lib-y`` only force compilation when the kconfig
+ * symbol ``CONFIG_BUILD_AVOID_BITROT`` has been enabled. Disabling this feature
+ * makes ``force-obj-y`` and ``force-lib-y`` functionally equivalent to
+ * ``obj-y`` and ``lib-y`` respectively.
+ *
+ * Example use::
+ *
+ * 	force-obj-$(CONFIG_FEATURE_FOO) += foo.o
+ */
+
+/**
  * DOC: Linker table module support
  *
  * Modules can use linker tables, however the linker table definition
