@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <assert.h>
 #include <linux/compiler.h>
+#include <linux/bug.h>
 
 #ifndef UINT_MAX
 #define UINT_MAX	(~0U)
