@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include <linux/bug.h>
+
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 
 #define PERF_ALIGN(x, a)	__PERF_ALIGN_MASK(x, (typeof(x))(a)-1)
