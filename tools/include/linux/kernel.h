@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include <linux/bug.h>
+#include <linux/printk.h>
 
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 
