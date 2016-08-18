@@ -5,6 +5,12 @@
 /* The "volatile" is due to gcc bugs */
 #define barrier() __asm__ __volatile__("": : :"memory")
 
+
+/* You can override as you see fit on your userspace tool */
+#ifndef __used
+#define __used          __attribute__((__used__))
+#endif
+
 #ifndef __always_inline
 # define __always_inline	inline __attribute__((always_inline))
 #endif
