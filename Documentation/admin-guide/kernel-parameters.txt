@@ -1748,6 +1748,13 @@
 
 	keepinitrd	[HW,ARM]
 
+	kmod.max_modprobes [KNL]
+			This lets you set the max allowed of concurrent
+			modprobes threads possible on a system overriding the
+			default heuristic of:
+
+				min(max_threads/2, 1 << CONFIG_MAX_KMOD_CONCURRENT)
+
 	kernelcore=	[KNL,X86,IA-64,PPC]
 			Format: nn[KMGTPE] | "mirror"
 			This parameter
