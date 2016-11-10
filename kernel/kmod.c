@@ -59,6 +59,7 @@ static DEFINE_SPINLOCK(umh_sysctl_lock);
 static DECLARE_RWSEM(umhelper_sem);
 
 #ifdef CONFIG_MODULES
+static atomic_t kmod_concurrent = ATOMIC_INIT(0);
 
 /*
 	modprobe_path is set via /proc/sys.
@@ -110,6 +111,20 @@ out:
 	return -ENOMEM;
 }
 
+static int kmod_umh_threads_get(void)
+{
+	atomic_inc(&kmod_concurrent);
+	if (atomic_read(&kmod_concurrent) <= max_modprobes)
+		return 0;
+	atomic_dec(&kmod_concurrent);
+	return -ENOMEM;
+}
+
+static void kmod_umh_threads_put(void)
+{
+	atomic_dec(&kmod_concurrent);
+}
+
 /**
  * __request_module - try to load a kernel module
  * @wait: wait (or not) for the operation to complete
@@ -131,7 +146,6 @@ int __request_module(bool wait, const char *fmt, ...)
 	va_list args;
 	char module_name[MODULE_NAME_LEN];
 	int ret;
-	static atomic_t kmod_concurrent = ATOMIC_INIT(0);
 	static int kmod_loop_msg;
 
 	/*
@@ -155,8 +169,8 @@ int __request_module(bool wait, const char *fmt, ...)
 	if (ret)
 		return ret;
 
-	atomic_inc(&kmod_concurrent);
-	if (atomic_read(&kmod_concurrent) > max_modprobes) {
+	ret = kmod_umh_threads_get();
+	if (ret) {
 		/* We may be blaming an innocent here, but unlikely */
 		if (kmod_loop_msg < 5) {
 			printk(KERN_ERR
@@ -164,15 +178,14 @@ int __request_module(bool wait, const char *fmt, ...)
 			       module_name);
 			kmod_loop_msg++;
 		}
-		atomic_dec(&kmod_concurrent);
-		return -ENOMEM;
+		return ret;
 	}
 
 	trace_module_request(module_name, wait, _RET_IP_);
 
 	ret = call_modprobe(module_name, wait ? UMH_WAIT_PROC : UMH_WAIT_EXEC);
 
-	atomic_dec(&kmod_concurrent);
+	kmod_umh_threads_put();
 	return ret;
 }
 EXPORT_SYMBOL(__request_module);
