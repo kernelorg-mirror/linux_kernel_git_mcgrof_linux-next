@@ -382,7 +382,7 @@ kmod_test_0008()
 	let EXTRA=$MODPROBE_LIMIT/2
 	config_num_thread_limit_extra $EXTRA
 	config_trigger ${FUNCNAME[0]}
-	config_expect_result ${FUNCNAME[0]} -EINVAL
+	config_expect_result ${FUNCNAME[0]} SUCCESS
 }
 
 kmod_test_0009()
@@ -392,7 +392,7 @@ kmod_test_0009()
 	#let EXTRA=$MODPROBE_LIMIT/3
 	config_num_thread_limit_extra 5
 	config_trigger ${FUNCNAME[0]}
-	config_expect_result ${FUNCNAME[0]} -EINVAL
+	config_expect_result ${FUNCNAME[0]} SUCCESS
 }
 
 trap "test_finish" EXIT
@@ -442,8 +442,7 @@ kmod_test_0004
 kmod_test_0005
 kmod_test_0006
 kmod_test_0007
-
-#kmod_test_0008
-#kmod_test_0009
+kmod_test_0008
+kmod_test_0009
 
 exit 0
