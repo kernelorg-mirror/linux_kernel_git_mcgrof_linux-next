@@ -1708,6 +1708,12 @@ config TEST_PARMAN
 
 	  If unsure, say N.
 
+config TEST_LINKTABLES
+	bool "Test linker table functionality"
+	default n
+	help
+	  Enable this option to test the kernel's linker table functionality.
+
 endmenu # runtime tests
 
 config PROVIDE_OHCI1394_DMA_INIT
