@@ -817,7 +817,7 @@ static const struct parisc_device_id hp_sdc_tbl[] = {
 
 MODULE_DEVICE_TABLE(parisc, hp_sdc_tbl);
 
-static int __init hp_sdc_init_hppa(struct parisc_device *d);
+static int hp_sdc_init_hppa(struct parisc_device *d);
 static struct delayed_work moduleloader_work;
 
 static struct parisc_driver hp_sdc_driver = {
@@ -935,7 +935,7 @@ static void request_module_delayed(struct work_struct *work)
 	request_module("hp_sdc_mlc");
 }
 
-static int __init hp_sdc_init_hppa(struct parisc_device *d)
+static int hp_sdc_init_hppa(struct parisc_device *d)
 {
 	int ret;
 

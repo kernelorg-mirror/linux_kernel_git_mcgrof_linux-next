@@ -24,7 +24,7 @@
 
 #include "8250.h"
 
-static int __init serial_init_chip(struct parisc_device *dev)
+static int serial_init_chip(struct parisc_device *dev)
 {
 	struct uart_8250_port uart;
 	unsigned long address;

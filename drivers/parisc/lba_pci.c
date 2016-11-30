@@ -1413,8 +1413,7 @@ static unsigned int lba_next_bus = 0;
  * If so, initialize the chip and tell other partners in crime they
  * have work to do.
  */
-static int __init
-lba_driver_probe(struct parisc_device *dev)
+static int lba_driver_probe(struct parisc_device *dev)
 {
 	struct lba_device *lba_dev;
 	LIST_HEAD(resources);

@@ -82,8 +82,7 @@ static struct scsi_host_template zalon7xx_template = {
 	.proc_name	= "zalon7xx",
 };
 
-static int __init
-zalon_probe(struct parisc_device *dev)
+static int zalon_probe(struct parisc_device *dev)
 {
 	struct gsc_irq gsc_irq;
 	u32 zalon_vers;
