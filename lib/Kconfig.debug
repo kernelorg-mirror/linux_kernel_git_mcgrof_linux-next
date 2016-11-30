@@ -1,3 +1,6 @@
+config TEST_LINKTABLES
+	def_bool y
+
 menu "printk and dmesg options"
 
 config PRINTK_TIME
@@ -1839,11 +1842,6 @@ config TEST_HASH
 	  This is intended to help people writing architecture-specific
 	  optimized versions.  If unsure, say N.
 
-config TEST_LINKTABLES
-	bool "Test linker table functionality"
-	default n
-	help
-	  Enable this option to test the kernel's linker table functionality.
 
 endmenu # runtime tests
 
