@@ -299,7 +299,7 @@ static void init_eisa_pic(void)
 
 #define is_mongoose(dev) (dev->id.sversion == 0x00076)
 
-static int __init eisa_probe(struct parisc_device *dev)
+static int eisa_probe(struct parisc_device *dev)
 {
 	int i, result;
 

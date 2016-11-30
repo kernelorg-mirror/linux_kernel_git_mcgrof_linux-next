@@ -452,7 +452,7 @@ static struct uart_ops mux_pops = {
  * Deterimine if the Serial Mux should claim this chip (return 0)
  * or not (return 1).
  */
-static int __init mux_probe(struct parisc_device *dev)
+static int mux_probe(struct parisc_device *dev)
 {
 	int i, status;
 

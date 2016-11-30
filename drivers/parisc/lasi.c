@@ -163,7 +163,7 @@ static void lasi_power_off(void)
 	gsc_writel(0x02, datareg);
 }
 
-static int __init lasi_init_chip(struct parisc_device *dev)
+static int lasi_init_chip(struct parisc_device *dev)
 {
 	extern void (*chassis_power_off)(void);
 	struct gsc_asic *lasi;

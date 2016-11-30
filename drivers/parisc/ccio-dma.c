@@ -1531,7 +1531,7 @@ int ccio_request_resource(const struct parisc_device *dev,
  * If so, initialize the chip and tell other partners in crime they
  * have work to do.
  */
-static int __init ccio_probe(struct parisc_device *dev)
+static int ccio_probe(struct parisc_device *dev)
 {
 	int i;
 	struct ioc *ioc, **ioc_p = &ioc_list;
