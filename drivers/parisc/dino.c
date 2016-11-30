@@ -884,7 +884,7 @@ void ccio_cujo20_fixup(struct parisc_device *dev, u32 iovp);
 ** If so, initialize the chip appropriately (card-mode vs bridge mode).
 ** Much of the initialization is common though.
 */
-static int __init dino_probe(struct parisc_device *dev)
+static int dino_probe(struct parisc_device *dev)
 {
 	struct dino_device *dino_dev;	// Dino specific control struct
 	const char *version = "unknown";
