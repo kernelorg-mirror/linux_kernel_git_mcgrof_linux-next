@@ -113,15 +113,35 @@ out:
 
 static int kmod_umh_threads_get(void)
 {
+	int ret = 0;
+
+	/*
+	 * Disabling preemption makes sure that we are not rescheduled here
+	 *
+	 * Also preemption helps kmod_concurrent is not increased by mistake
+	 * for too long given in theory two concurrent threads could race on
+	 * atomic_inc() before we atomic_read() -- we know that's possible
+	 * and but we don't care, this is not used for object accounting and
+	 * is just a subjective threshold. The alternative is a lock.
+	 */
+	preempt_disable();
 	atomic_inc(&kmod_concurrent);
 	if (atomic_read(&kmod_concurrent) <= max_modprobes)
-		return 0;
+		goto out;
+
 	atomic_dec(&kmod_concurrent);
-	return -EBUSY;
+	ret = -EBUSY;
+out:
+	preempt_enable();
+	return ret;
 }
 
 static void kmod_umh_threads_put(void)
 {
+	/*
+	 * Preemption is not needed given once work is done we can
+	 * pace ourselves on our way out.
+	 */
 	atomic_dec(&kmod_concurrent);
 }
 
