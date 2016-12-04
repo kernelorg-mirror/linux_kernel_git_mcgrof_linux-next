@@ -682,6 +682,13 @@ static struct ctl_table kern_table[] = {
 		.extra1		= &one,
 		.extra2		= &one,
 	},
+	{
+		.procname	= "kmod-limit",
+		.data		= NULL, /* filled in by handler */
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0444,
+		.proc_handler	= sysctl_kmod_limit,
+	},
 #endif
 #ifdef CONFIG_UEVENT_HELPER
 	{
