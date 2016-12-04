@@ -370,6 +370,26 @@ with the "modules_disabled" sysctl.
 
 ==============================================================
 
+kmod-limit:
+
+Get the max amount of concurrent requests (kmod_concurrent) the kernel can
+make out to userspace to call 'modprobe'. This limit is known internally to the
+kernel as max_modprobes. This interface is designed to enable userspace to
+query the kernel for the max_modprobes limit so userspace can more
+deterministically handle module loading by only enabling max_modprobes
+'modprobe' calls at a time.
+
+Dependencies are resolved in userspace through depmod, so one modprobe
+call only bumps the number of concurrent threads (kmod_concurrent) by one.
+Dependencies for a module then are loaded directly in userspace using
+init_module() / finit_module() skipping bumping kmod_concurrent or being
+affected by max_modprobes.
+
+The max_modprobes value is set at build time with CONFIG_MAX_KMOD_CONCURRENT.
+You can override at initialization with the module parameter max_modprobes.
+
+==============================================================
+
 kptr_restrict:
 
 This toggle indicates whether restrictions are placed on

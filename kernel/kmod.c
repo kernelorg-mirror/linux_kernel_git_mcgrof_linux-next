@@ -146,6 +146,17 @@ static void kmod_umh_threads_put(void)
 }
 
 /**
+ * get_kmod_umh_limit - get concurrent modprobe thread limit
+ *
+ * Returns the number of allowed concurrent modprobe calls.
+ */
+unsigned int get_kmod_umh_limit(void)
+{
+	return max_modprobes;
+}
+EXPORT_SYMBOL_GPL(get_kmod_umh_limit);
+
+/**
  * __request_module - try to load a kernel module
  * @wait: wait (or not) for the operation to complete
  * @fmt: printf style format string for the name of the module
@@ -226,6 +237,28 @@ void __init init_kmod_umh(void)
 	if (!max_modprobes)
 		max_modprobes = min(max_threads/2,
 				    1 << CONFIG_MAX_KMOD_CONCURRENT);
+}
+
+int sysctl_kmod_limit(struct ctl_table *table, int write,
+		      void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	struct ctl_table t;
+	int ret;
+	unsigned int local_max_modprobes = max_modprobes;
+	unsigned int min = 0;
+	unsigned int max = max_threads/2;
+
+	t = *table;
+	t.data = &local_max_modprobes;
+	t.extra1 = &min;
+	t.extra2 = &max;
+
+	if (write)
+		return -EPERM;
+
+	ret = proc_douintvec_minmax(&t, write, buffer, lenp, ppos);
+
+	return ret;
 }
 
 #endif /* CONFIG_MODULES */
