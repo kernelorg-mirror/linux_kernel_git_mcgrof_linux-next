@@ -1031,6 +1031,18 @@ static int sysctl_err(const char *path, struct ctl_table *table, char *fmt, ...)
 	return -EINVAL;
 }
 
+static int sysctl_check_table_array(const char *path, struct ctl_table *table)
+{
+	int err = 0;
+
+	if (table->proc_handler == proc_douintvec) {
+		if (table->maxlen != sizeof(unsigned int))
+			err |= sysctl_err(path, table, "array now allowed");
+	}
+
+	return err;
+}
+
 static int sysctl_check_table(const char *path, struct ctl_table *table)
 {
 	int err = 0;
@@ -1040,6 +1052,7 @@ static int sysctl_check_table(const char *path, struct ctl_table *table)
 
 		if ((table->proc_handler == proc_dostring) ||
 		    (table->proc_handler == proc_dointvec) ||
+		    (table->proc_handler == proc_douintvec) ||
 		    (table->proc_handler == proc_dointvec_minmax) ||
 		    (table->proc_handler == proc_dointvec_jiffies) ||
 		    (table->proc_handler == proc_dointvec_userhz_jiffies) ||
@@ -1050,6 +1063,8 @@ static int sysctl_check_table(const char *path, struct ctl_table *table)
 				err |= sysctl_err(path, table, "No data");
 			if (!table->maxlen)
 				err |= sysctl_err(path, table, "No maxlen");
+			else
+				err |= sysctl_check_table_array(path, table);
 		}
 		if (!table->proc_handler)
 			err |= sysctl_err(path, table, "No proc_handler");
