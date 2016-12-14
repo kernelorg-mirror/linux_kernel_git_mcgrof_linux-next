@@ -344,6 +344,9 @@ struct module {
 	const char *srcversion;
 	struct kobject *holders_dir;
 
+	unsigned int num_aliases;
+	const char **aliases;
+
 	/* Exported symbols */
 	const struct kernel_symbol *syms;
 	const unsigned long *crcs;
