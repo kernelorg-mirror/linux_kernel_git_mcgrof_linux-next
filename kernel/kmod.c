@@ -42,6 +42,7 @@
 #include <linux/ptrace.h>
 #include <linux/async.h>
 #include <linux/uaccess.h>
+#include <linux/swait.h>
 
 #include <trace/events/module.h>
 
@@ -68,6 +69,7 @@ static DECLARE_RWSEM(umhelper_sem);
  */
 #define MAX_KMOD_CONCURRENT 50
 static atomic_t kmod_concurrent_max = ATOMIC_INIT(MAX_KMOD_CONCURRENT);
+static DECLARE_SWAIT_QUEUE_HEAD(kmod_wq);
 
 /*
 	modprobe_path is set via /proc/sys.
@@ -140,7 +142,6 @@ int __request_module(bool wait, const char *fmt, ...)
 	va_list args;
 	char module_name[MODULE_NAME_LEN];
 	int ret;
-	static int kmod_loop_msg;
 
 	/*
 	 * We don't allow synchronous module loading from async.  Module
@@ -164,14 +165,11 @@ int __request_module(bool wait, const char *fmt, ...)
 		return ret;
 
 	if (atomic_dec_if_positive(&kmod_concurrent_max) < 0) {
-		/* We may be blaming an innocent here, but unlikely */
-		if (kmod_loop_msg < 5) {
-			printk(KERN_ERR
-			       "request_module: runaway loop modprobe %s\n",
-			       module_name);
-			kmod_loop_msg++;
-		}
-		return -ENOMEM;
+		pr_warn_ratelimited("request_module: kmod_concurrent_max (%u) close to 0 (max_modprobes: %u), for module %s\n, throttling...",
+				    atomic_read(&kmod_concurrent_max),
+				    MAX_KMOD_CONCURRENT, module_name);
+		swait_event_interruptible(kmod_wq,
+					  atomic_dec_if_positive(&kmod_concurrent_max) >= 0);
 	}
 
 	trace_module_request(module_name, wait, _RET_IP_);
@@ -179,6 +177,7 @@ int __request_module(bool wait, const char *fmt, ...)
 	ret = call_modprobe(module_name, wait ? UMH_WAIT_PROC : UMH_WAIT_EXEC);
 
 	atomic_inc(&kmod_concurrent_max);
+	swake_up(&kmod_wq);
 
 	return ret;
 }
