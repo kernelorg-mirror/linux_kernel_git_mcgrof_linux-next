@@ -282,6 +282,12 @@ int __request_module(bool wait, const char *fmt, ...)
 	if (ret)
 		return ret;
 
+	ret = finished_kmod_load(module_name, wait);
+	if (!ret) {
+		pr_debug_ratelimited("request_module: module %s already loaded\n", module_name);
+		return 0;
+	}
+
 	if (!kmod_concurrent_sane()) {
 		pr_warn_ratelimited("request_module: kmod_concurrent (%u) close to critical levels (max_modprobes: %u) for module %s\n, backing off for a bit",
 				    atomic_read(&kmod_concurrent), max_modprobes, module_name);
