@@ -223,12 +223,18 @@ static int wait_for_kmod(char *name)
  * as many aliases possible the kernel gives the module, if that is n, that
  * n traversals on the module list.
  */
-static int finished_kmod_load(char *name)
+static int finished_kmod_load(char *name, bool wait)
 {
-	int ret = 0;
+	int ret = -ENOENT;
 
-	if (kmod_exists(name))
-		ret = wait_for_kmod(name);
+	if (kmod_exists(name)) {
+		if (finished_loading(name))
+			return 0;
+		else if (wait)
+			ret = wait_for_kmod(name);
+		else
+			ret = -EINPROGRESS;
+	}
 
 	return ret;
 }
@@ -276,6 +282,12 @@ int __request_module(bool wait, const char *fmt, ...)
 	if (ret)
 		return ret;
 
+	ret = finished_kmod_load(module_name, wait);
+	if (!ret) {
+		pr_debug_ratelimited("request_module: module %s already loaded\n", module_name);
+		return 0;
+	}
+
 	if (!kmod_concurrent_sane()) {
 		pr_warn_ratelimited("request_module: kmod_concurrent (%u) close to critical levels (max_modprobes: %u) for module %s\n, backing off for a bit",
 				    atomic_read(&kmod_concurrent), max_modprobes, module_name);
@@ -293,7 +305,7 @@ int __request_module(bool wait, const char *fmt, ...)
 
 	ret = call_modprobe(module_name, wait ? UMH_WAIT_PROC : UMH_WAIT_EXEC);
 	if (!ret)
-		ret = finished_kmod_load(module_name);
+		ret = finished_kmod_load(module_name, wait);
 
 	kmod_umh_threads_put();
 	wake_up_all(&kmod_wq);
