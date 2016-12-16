@@ -60,6 +60,7 @@ static DECLARE_RWSEM(umhelper_sem);
 
 #ifdef CONFIG_MODULES
 static atomic_t kmod_concurrent = ATOMIC_INIT(0);
+static DECLARE_WAIT_QUEUE_HEAD(kmod_wq);
 
 /*
 	modprobe_path is set via /proc/sys.
@@ -156,6 +157,16 @@ unsigned int get_kmod_umh_limit(void)
 }
 EXPORT_SYMBOL_GPL(get_kmod_umh_limit);
 
+static bool kmod_concurrent_sane(void)
+{
+	unsigned int clutch;
+
+	clutch = get_kmod_umh_limit() - (get_kmod_umh_limit()/4);
+	if (atomic_read(&kmod_concurrent) < clutch)
+		return true;
+	return false;
+}
+
 /**
  * __request_module - try to load a kernel module
  * @wait: wait (or not) for the operation to complete
@@ -199,6 +210,12 @@ int __request_module(bool wait, const char *fmt, ...)
 	if (ret)
 		return ret;
 
+	if (!kmod_concurrent_sane()) {
+		pr_warn_ratelimited("request_module: kmod_concurrent (%u) close to critical levels (max_modprobes: %u) for module %s\n, backing off for a bit",
+				    atomic_read(&kmod_concurrent), max_modprobes, module_name);
+		wait_event_interruptible(kmod_wq, kmod_concurrent_sane());
+	}
+
 	ret = kmod_umh_threads_get();
 	if (ret) {
 		pr_err_ratelimited("%s: module \"%s\" reached limit (%u) of concurrent modprobe calls\n",
@@ -211,6 +228,7 @@ int __request_module(bool wait, const char *fmt, ...)
 	ret = call_modprobe(module_name, wait ? UMH_WAIT_PROC : UMH_WAIT_EXEC);
 
 	kmod_umh_threads_put();
+	wake_up_all(&kmod_wq);
 	return ret;
 }
 EXPORT_SYMBOL(__request_module);
