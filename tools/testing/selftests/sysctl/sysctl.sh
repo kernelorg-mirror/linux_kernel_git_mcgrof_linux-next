@@ -24,6 +24,7 @@ TEST_FILE=$(mktemp)
 # we have tons of space.
 ALL_TESTS="0001:1:1"
 ALL_TESTS="$ALL_TESTS 0002:1:1"
+ALL_TESTS="$ALL_TESTS 0003:1:1"
 
 test_modprobe()
 {
@@ -258,6 +259,36 @@ run_limit_digit()
 	test_rc
 }
 
+# You are using an int
+run_limit_digit_int()
+{
+	echo -n "Testing INT_MAX works ..."
+	reset_vals
+	TEST_STR="2147483647"
+	echo -n $TEST_STR > $TARGET
+
+	if ! verify "${TARGET}"; then
+		echo "FAIL" >&2
+		rc=1
+	else
+		echo "ok"
+	fi
+
+	echo -n "Testing INT_MAX + 1 will fail as expected..."
+	reset_vals
+	TEST_STR="2147483648"
+	echo -n $TEST_STR > $TARGET 2> /dev/null
+
+	if verify "${TARGET}"; then
+		echo "FAIL" >&2
+		rc=1
+	else
+		echo "ok"
+	fi
+
+	test_rc
+}
+
 run_stringtests()
 {
 	echo -n "Writing entire sysctl in short writes ... "
@@ -351,6 +382,18 @@ sysctl_test_0002()
 	run_stringtests
 }
 
+sysctl_test_0003()
+{
+	TARGET="${SYSCTL}/int_0002"
+	reset_vals
+	ORIG=$(cat "${TARGET}")
+	TEST_STR=$(( $ORIG + 1 ))
+
+	run_numerictests
+	run_limit_digit
+	run_limit_digit_int
+}
+
 list_tests()
 {
 	echo "Test ID list:"
@@ -361,6 +404,7 @@ list_tests()
 	echo
 	echo "0001 x $(get_test_count 0001) - tests proc_dointvec_minmax()"
 	echo "0002 x $(get_test_count 0002) - tests proc_dostring()"
+	echo "0003 x $(get_test_count 0002) - tests proc_dointvec()"
 }
 
 test_reqs
