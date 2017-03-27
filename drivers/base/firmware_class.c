@@ -19,6 +19,7 @@
 #include <linux/workqueue.h>
 #include <linux/highmem.h>
 #include <linux/firmware.h>
+#include <linux/driver_data.h>
 #include <linux/slab.h>
 #include <linux/sched.h>
 #include <linux/file.h>
@@ -40,6 +41,77 @@ MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
 MODULE_LICENSE("GPL");
 
+struct driver_data_priv_params {
+	bool use_fallback;
+	bool use_fallback_uevent;
+	bool no_cache;
+	void *alloc_buf;
+	size_t alloc_buf_size;
+};
+
+struct driver_data_params {
+	const struct firmware *driver_data;
+	const struct driver_data_req_params req_params;
+	struct driver_data_priv_params priv_params;
+};
+
+/*
+ * These are kept to remain backward compatible with old behaviour. Do not
+ * modify them unless you know what you are doing. These are to be used only
+ * by the old API, so:
+ *
+ * Old sync APIs:
+ * 	o request_firmware():		__DATA_REQ_FIRMWARE()
+ * 	o request_firmware_direct():	__DATA_REQ_FIRMWARE_DIRECT()
+ *	o request_firmware_into_buf():	__DATA_REQ_FIRMWARE_BUF()
+ *
+ * Old async API:
+ *	o request_firmware_nowait():	__DATA_REQ_FIRMWARE_NOWAIT()
+ */
+#define __DATA_REQ_FIRMWARE()						\
+	.priv_params = {						\
+		.use_fallback = !!FW_OPT_FALLBACK,			\
+		.use_fallback_uevent = true,				\
+	}
+
+#define __DATA_REQ_FIRMWARE_DIRECT()					\
+	.req_params = {							\
+		.optional = true,					\
+	},								\
+	.priv_params = {						\
+		.use_fallback = !!FW_OPT_FALLBACK,			\
+	}
+
+#define __DATA_REQ_FIRMWARE_BUF(buf, size)				\
+	.priv_params = {						\
+		.use_fallback = !!FW_OPT_FALLBACK,			\
+		.use_fallback_uevent = true,				\
+		.alloc_buf = buf,					\
+		.alloc_buf_size = size,					\
+		.no_cache = true,					\
+	}
+
+#define __DATA_REQ_FIRMWARE_NOWAIT(module, uevent, gfp, async_cb, async_ctx) \
+	.req_params = {							\
+		.sync_reqs = {						\
+			.mode = DRIVER_DATA_ASYNC,			\
+			.module = module,				\
+			.gfp = gfp,					\
+		},							\
+		.cbs.async = {						\
+			.found_cb = async_cb,				\
+			.found_ctx = async_ctx,				\
+		},							\
+	},								\
+	.priv_params = {						\
+		.use_fallback = !!FW_OPT_FALLBACK,			\
+		.use_fallback_uevent = uevent,				\
+	}
+
+#define driver_data_param_use_fallback(params)	((params)->use_fallback)
+#define driver_data_param_uevent(params)	((params)->use_fallback_uevent)
+#define driver_data_param_nocache(params)	((params)->no_cache)
+
 /* Builtin firmware support */
 
 #ifdef CONFIG_FW_LOADER
@@ -48,9 +120,19 @@ extern struct builtin_fw __start_builtin_fw[];
 extern struct builtin_fw __end_builtin_fw[];
 
 static bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
-				    void *buf, size_t size)
+				    struct driver_data_params *data_params)
 {
 	struct builtin_fw *b_fw;
+	void *buf;
+	size_t size;
+
+	if (data_params) {
+		buf = data_params->priv_params.alloc_buf;
+		size = data_params->priv_params.alloc_buf_size;
+	} else {
+		buf = NULL;
+		size = 0;
+	}
 
 	for (b_fw = __start_builtin_fw; b_fw != __end_builtin_fw; b_fw++) {
 		if (strcmp(name, b_fw->name) == 0) {
@@ -79,9 +161,9 @@ static bool fw_is_builtin_firmware(const struct firmware *fw)
 
 #else /* Module case - no builtin firmware support */
 
-static inline bool fw_get_builtin_firmware(struct firmware *fw,
-					   const char *name, void *buf,
-					   size_t size)
+static inline
+bool fw_get_builtin_firmware(struct firmware *fw, const char *name,
+			     struct driver_data_params *data_params)
 {
 	return false;
 }
@@ -296,9 +378,19 @@ static struct firmware_cache fw_cache;
 
 static struct firmware_buf *__allocate_fw_buf(const char *fw_name,
 					      struct firmware_cache *fwc,
-					      void *dbuf, size_t size)
+					      struct driver_data_params *data_params)
 {
 	struct firmware_buf *buf;
+	void *dbuf;
+	size_t size;
+
+	if (data_params) {
+		dbuf = data_params->priv_params.alloc_buf;
+		size = data_params->priv_params.alloc_buf_size;
+	} else {
+		dbuf = NULL;
+		size = 0;
+	}
 
 	buf = kzalloc(sizeof(*buf), GFP_ATOMIC);
 	if (!buf)
@@ -337,8 +429,8 @@ static struct firmware_buf *__fw_lookup_buf(const char *fw_name)
 
 static int fw_lookup_and_allocate_buf(const char *fw_name,
 				      struct firmware_cache *fwc,
-				      struct firmware_buf **buf, void *dbuf,
-				      size_t size)
+				      struct firmware_buf **buf,
+				      struct driver_data_params *data_params)
 {
 	struct firmware_buf *tmp;
 
@@ -350,7 +442,7 @@ static int fw_lookup_and_allocate_buf(const char *fw_name,
 		*buf = tmp;
 		return 1;
 	}
-	tmp = __allocate_fw_buf(fw_name, fwc, dbuf, size);
+	tmp = __allocate_fw_buf(fw_name, fwc, data_params);
 	if (tmp)
 		list_add(&tmp->list, &fwc->head);
 	spin_unlock(&fwc->lock);
@@ -556,7 +648,7 @@ static int fw_add_devm_name(struct device *dev, const char *name)
 #endif
 
 static int assign_firmware_buf(struct firmware *fw, struct device *device,
-			       unsigned int opt_flags)
+			       struct driver_data_params *data_params)
 {
 	struct firmware_buf *buf = fw->priv;
 
@@ -574,15 +666,16 @@ static int assign_firmware_buf(struct firmware *fw, struct device *device,
 	 * should be fixed in devres or driver core.
 	 */
 	/* don't cache firmware handled without uevent */
-	if (device && (opt_flags & FW_OPT_UEVENT) &&
-	    !(opt_flags & FW_OPT_NOCACHE))
+	if (device &&
+	    driver_data_param_uevent(&data_params->priv_params) &&
+	    !driver_data_param_nocache(&data_params->priv_params))
 		fw_add_devm_name(device, buf->fw_id);
 
 	/*
 	 * After caching firmware image is started, let it piggyback
 	 * on request firmware.
 	 */
-	if (!(opt_flags & FW_OPT_NOCACHE) &&
+	if (!driver_data_param_nocache(&data_params->priv_params) &&
 	    buf->fwc->state == FW_LOADER_START_CACHE) {
 		if (fw_cache_piggyback_on_request(buf->fw_id))
 			kref_get(&buf->ref);
@@ -1012,7 +1105,8 @@ static const struct attribute_group *fw_dev_attr_groups[] = {
 
 static struct firmware_priv *
 fw_create_instance(struct firmware *firmware, const char *fw_name,
-		   struct device *device, unsigned int opt_flags)
+		   struct device *device,
+		   struct driver_data_params *data_params)
 {
 	struct firmware_priv *fw_priv;
 	struct device *f_dev;
@@ -1023,7 +1117,7 @@ fw_create_instance(struct firmware *firmware, const char *fw_name,
 		goto exit;
 	}
 
-	fw_priv->nowait = !!(opt_flags & FW_OPT_NOWAIT);
+	fw_priv->nowait = driver_data_req_param_async(&data_params->req_params);
 	fw_priv->fw = firmware;
 	f_dev = &fw_priv->dev;
 
@@ -1038,7 +1132,8 @@ exit:
 
 /* load a firmware via user helper */
 static int _request_firmware_load(struct firmware_priv *fw_priv,
-				  unsigned int opt_flags, long timeout)
+				  struct driver_data_params *data_params,
+				  long timeout)
 {
 	int retval = 0;
 	struct device *f_dev = &fw_priv->dev;
@@ -1060,7 +1155,7 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 	list_add(&buf->pending_list, &pending_fw_head);
 	mutex_unlock(&fw_lock);
 
-	if (opt_flags & FW_OPT_UEVENT) {
+	if (driver_data_param_uevent(&data_params->priv_params)) {
 		buf->need_uevent = true;
 		dev_set_uevent_suppress(f_dev, false);
 		dev_dbg(f_dev, "firmware: requesting %s\n", buf->fw_id);
@@ -1089,14 +1184,14 @@ err_put_dev:
 
 static int fw_load_from_user_helper(struct firmware *firmware,
 				    const char *name, struct device *device,
-				    unsigned int opt_flags)
+				    struct driver_data_params *data_params)
 {
 	struct firmware_priv *fw_priv;
 	long timeout;
 	int ret;
 
 	timeout = firmware_loading_timeout();
-	if (opt_flags & FW_OPT_NOWAIT) {
+	if (driver_data_req_param_async(&data_params->req_params)) {
 		timeout = usermodehelper_read_lock_wait(timeout);
 		if (!timeout) {
 			dev_dbg(device, "firmware: %s loading timed out\n",
@@ -1112,17 +1207,17 @@ static int fw_load_from_user_helper(struct firmware *firmware,
 		}
 	}
 
-	fw_priv = fw_create_instance(firmware, name, device, opt_flags);
+	fw_priv = fw_create_instance(firmware, name, device, data_params);
 	if (IS_ERR(fw_priv)) {
 		ret = PTR_ERR(fw_priv);
 		goto out_unlock;
 	}
 
 	fw_priv->buf = firmware->priv;
-	ret = _request_firmware_load(fw_priv, opt_flags, timeout);
+	ret = _request_firmware_load(fw_priv, data_params, timeout);
 
 	if (!ret)
-		ret = assign_firmware_buf(firmware, device, opt_flags);
+		ret = assign_firmware_buf(firmware, device, data_params);
 
 out_unlock:
 	usermodehelper_read_unlock();
@@ -1148,7 +1243,8 @@ static void kill_pending_fw_fallback_reqs(bool only_kill_custom)
 #else /* CONFIG_FW_LOADER_USER_HELPER */
 static inline int
 fw_load_from_user_helper(struct firmware *firmware, const char *name,
-			 struct device *device, unsigned int opt_flags)
+			 struct device *device,
+			 struct driver_data_params *data_params)
 {
 	return -ENOENT;
 }
@@ -1163,7 +1259,8 @@ static inline void kill_pending_fw_fallback_reqs(bool only_kill_custom) { }
  */
 static int
 _request_firmware_prepare(struct firmware **firmware_p, const char *name,
-			  struct device *device, void *dbuf, size_t size)
+			  struct device *device,
+			  struct driver_data_params *data_params)
 {
 	struct firmware *firmware;
 	struct firmware_buf *buf;
@@ -1176,12 +1273,12 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 		return -ENOMEM;
 	}
 
-	if (fw_get_builtin_firmware(firmware, name, dbuf, size)) {
+	if (fw_get_builtin_firmware(firmware, name, data_params)) {
 		dev_dbg(device, "using built-in %s\n", name);
 		return 0; /* assigned */
 	}
 
-	ret = fw_lookup_and_allocate_buf(name, &fw_cache, &buf, dbuf, size);
+	ret = fw_lookup_and_allocate_buf(name, &fw_cache, &buf, data_params);
 
 	/*
 	 * bind with 'buf' now to avoid warning in failure path
@@ -1205,8 +1302,8 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 /* called from request_firmware() and request_firmware_work_func() */
 static int
 _request_firmware(const struct firmware **firmware_p, const char *name,
-		  struct device *device, void *buf, size_t size,
-		  unsigned int opt_flags)
+		  struct driver_data_params *data_params,
+		  struct device *device)
 {
 	struct firmware *fw = NULL;
 	int ret;
@@ -1219,7 +1316,7 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		goto out;
 	}
 
-	ret = _request_firmware_prepare(&fw, name, device, buf, size);
+	ret = _request_firmware_prepare(&fw, name, device, data_params);
 	if (ret <= 0) /* error or already assigned */
 		goto out;
 
@@ -1231,17 +1328,17 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 
 	ret = fw_get_filesystem_firmware(device, fw->priv);
 	if (ret) {
-		if (!(opt_flags & FW_OPT_NO_WARN))
+		if (!driver_data_param_optional(&data_params->req_params))
 			dev_warn(device,
 				 "Direct firmware load for %s failed with error %d\n",
 				 name, ret);
-		if (opt_flags & FW_OPT_USERHELPER) {
+		if (driver_data_param_use_fallback(&data_params->priv_params)) {
 			dev_warn(device, "Falling back to user helper\n");
 			ret = fw_load_from_user_helper(fw, name, device,
-						       opt_flags);
+						       data_params);
 		}
 	} else
-		ret = assign_firmware_buf(fw, device, opt_flags);
+		ret = assign_firmware_buf(fw, device, data_params);
 
  out:
 	if (ret < 0) {
@@ -1278,11 +1375,13 @@ request_firmware(const struct firmware **firmware_p, const char *name,
 		 struct device *device)
 {
 	int ret;
+	struct driver_data_params data_params = {
+		__DATA_REQ_FIRMWARE(),
+	};
 
 	/* Need to pin this module until return */
 	__module_get(THIS_MODULE);
-	ret = _request_firmware(firmware_p, name, device, NULL, 0,
-				FW_OPT_UEVENT | FW_OPT_FALLBACK);
+	ret = _request_firmware(firmware_p, name, &data_params, device);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -1303,10 +1402,12 @@ int request_firmware_direct(const struct firmware **firmware_p,
 			    const char *name, struct device *device)
 {
 	int ret;
+	struct driver_data_params data_params = {
+		__DATA_REQ_FIRMWARE_DIRECT(),
+	};
 
 	__module_get(THIS_MODULE);
-	ret = _request_firmware(firmware_p, name, device, NULL, 0,
-				FW_OPT_UEVENT | FW_OPT_NO_WARN);
+	ret = _request_firmware(firmware_p, name, &data_params, device);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -1332,12 +1433,15 @@ request_firmware_into_buf(const struct firmware **firmware_p, const char *name,
 			  struct device *device, void *buf, size_t size)
 {
 	int ret;
+	struct driver_data_params data_params = {
+		__DATA_REQ_FIRMWARE_BUF(buf, size),
+	};
 
 	__module_get(THIS_MODULE);
-	ret = _request_firmware(firmware_p, name, device, buf, size,
-				FW_OPT_UEVENT | FW_OPT_FALLBACK |
-				FW_OPT_NOCACHE);
+	ret = _request_firmware(firmware_p, name, &data_params, device);
 	module_put(THIS_MODULE);
+
+
 	return ret;
 }
 EXPORT_SYMBOL(request_firmware_into_buf);
@@ -1359,27 +1463,29 @@ EXPORT_SYMBOL(release_firmware);
 /* Async support */
 struct firmware_work {
 	struct work_struct work;
-	struct module *module;
+	struct driver_data_params data_params;
 	const char *name;
 	struct device *device;
-	void *context;
-	void (*cont)(const struct firmware *fw, void *context);
-	unsigned int opt_flags;
 };
 
 static void request_firmware_work_func(struct work_struct *work)
 {
 	struct firmware_work *fw_work;
-	const struct firmware *fw;
+	struct driver_data_params *data_params;
+	const struct driver_data_req_params *req_params;
+	const struct driver_data_reqs *sync_reqs;
 
 	fw_work = container_of(work, struct firmware_work, work);
+	data_params = &fw_work->data_params;
+	req_params = &data_params->req_params;
+	sync_reqs = &req_params->sync_reqs;
 
-	_request_firmware(&fw, fw_work->name, fw_work->device, NULL, 0,
-			  fw_work->opt_flags);
-	fw_work->cont(fw, fw_work->context);
+	_request_firmware(&data_params->driver_data, fw_work->name,
+			  data_params, fw_work->device);
+	driver_data_async_call_cb(data_params->driver_data, req_params);
 	put_device(fw_work->device); /* taken in request_firmware_nowait() */
 
-	module_put(fw_work->module);
+	module_put(sync_reqs->module);
 	kfree_const(fw_work->name);
 	kfree(fw_work);
 }
@@ -1414,22 +1520,25 @@ request_firmware_nowait(
 	void (*cont)(const struct firmware *fw, void *context))
 {
 	struct firmware_work *fw_work;
+	struct driver_data_params data_params = {
+		__DATA_REQ_FIRMWARE_NOWAIT(module, uevent, gfp, cont, context),
+	};
+
+	if (!cont)
+		return -EINVAL;
 
 	fw_work = kzalloc(sizeof(struct firmware_work), gfp);
 	if (!fw_work)
 		return -ENOMEM;
 
-	fw_work->module = module;
 	fw_work->name = kstrdup_const(name, gfp);
 	if (!fw_work->name) {
 		kfree(fw_work);
 		return -ENOMEM;
 	}
 	fw_work->device = device;
-	fw_work->context = context;
-	fw_work->cont = cont;
-	fw_work->opt_flags = FW_OPT_NOWAIT | FW_OPT_FALLBACK |
-		(uevent ? FW_OPT_UEVENT : FW_OPT_USERHELPER);
+	memcpy(&fw_work->data_params, &data_params,
+	       sizeof(struct driver_data_params));
 
 	if (!try_module_get(module)) {
 		kfree_const(fw_work->name);
@@ -1507,7 +1616,7 @@ static int uncache_firmware(const char *fw_name)
 
 	pr_debug("%s: %s\n", __func__, fw_name);
 
-	if (fw_get_builtin_firmware(&fw, fw_name, NULL, 0))
+	if (fw_get_builtin_firmware(&fw, fw_name, NULL))
 		return 0;
 
 	buf = fw_lookup_buf(fw_name);
