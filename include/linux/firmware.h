@@ -27,6 +27,69 @@ struct builtin_fw {
 	unsigned long size;
 };
 
+/**
+ * struct fw_async_cbs - callbacks for handling firmware requests
+ * @found_cb: callback to be used when the firmware has been found. A
+ *	callback is required. If the requested firmware is found it will
+ *	passed on the callback, using the context set on @found_ctx.
+ * @found_ctx: preferred context to be used as the second argument to
+ * 	@found_cb.
+ *
+ * Used for specifying callbacks and contexts used for when asynchronous
+ * firmware requests have completed. If no firmware is found the error will be
+ * passed on the respective callback.
+ */
+struct fw_async_cbs {
+	void (*found_cb)(const struct firmware *fw,
+			 void *context,
+			 int error);
+	void *found_ctx;
+};
+
+/**
+ * union fw_cbs - callbacks for firmware request
+ * @async: callbacks for handling firmware when asynchronous requests
+ * 	are made.
+ *
+ * Used for placement of callbacks used for handling results from firmware
+ * requests.
+ */
+union fw_cbs {
+	struct fw_async_cbs async;
+};
+
+/**
+ * enum fw_reqs - requirements of the firmware request
+ * @FW_REQ_OPTIONAL: if set it is not a hard requirement by the
+ *	caller that the file requested be present. An error will not be recorded
+ *	if the file is not found.
+ */
+enum fw_reqs {
+	FW_REQ_OPTIONAL			= 1 << 0,
+};
+
+/**
+ * struct fw_req_params - firmware request parameters
+ * @hold_module: module to hold during the firmware request operation. By
+ * 	default if sync requests set this to NULL the firmware_class module
+ * 	will be refcounted during operation.
+ * @gfp: flags to use for allocations when constructing the firmware request,
+ *	prior to scheduling. Unused on fw_request_sync().
+ * @reqs: set of &enum fw_reqs flags used to configure the firmware
+ * 	request. All of the specified requirements must be met.
+ * @cbs: set of callbacks to use for the firmware request.
+ *
+ * This data structure is intended to carry all requirements and specifications
+ * required to complete the task to get the requested driver date file to the
+ * caller.
+ */
+struct fw_req_params {
+	struct module *hold_module;
+	gfp_t gfp;
+	u64 reqs;
+	const union fw_cbs cbs;
+};
+
 /* We have to play tricks here much like stringify() to get the
    __COUNTER__ macro to be expanded as we want it */
 #define __fw_concat1(x, y) x##y

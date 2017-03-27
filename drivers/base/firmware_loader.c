@@ -139,17 +139,34 @@ enum fw_priv_flags {
  * @pre_alloc_buf_size: size of the @pre_alloc_buf, this will be 0 if the
  * 	caller did not preallocate a buffer and expects us to allocate a buffer
  * 	on their behalf.
+ * @old_async_cb: used only for request_firmware_nowait() since we won't change
+ *	all async callbacks to get the return value on failure
  */
 struct fw_priv_params {
 	enum fw_api_mode mode;
 	u64 priv_flags;
 	void *pre_alloc_buf;
 	size_t pre_alloc_buf_size;
+
+	void (*old_async_cb)(const struct firmware *fw, void *context);
+};
+
+/**
+ * struct fw_params
+ * @fw: the fw if found using the requirements specified
+ * 	in @req_params and @priv_params
+ * @req_params: caller's requirements for the firmware to look for
+ * @priv_params: private requirements for the firmware to look for
+ */
+struct fw_params {
+	const struct firmware *fw;
+	const struct fw_req_params req_params;
+	struct fw_priv_params priv_params;
 };
 
 struct fw_priv {
 	struct kref ref;
-	struct fw_priv_params priv_params;
+	struct fw_params fw_params;
 	struct list_head list;
 	struct firmware_cache *fwc;
 	struct fw_state fw_st;
@@ -192,45 +209,107 @@ static struct firmware_cache fw_cache;
 
 static inline bool fw_priv_async(struct fw_priv *fw_priv)
 {
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 
 	return priv_params->mode == FW_API_ASYNC;
 }
 
 static inline bool fw_priv_use_fallback(struct fw_priv *fw_priv)
 {
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 
 	return  !!(priv_params->priv_flags & FW_PRIV_FALLBACK);
 }
 
 static inline bool fw_priv_no_fallback(struct fw_priv *fw_priv)
 {
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 
 	return  !!(priv_params->priv_flags & FW_PRIV_NO_FALLBACK);
 }
 
 static inline bool fw_priv_uevent(struct fw_priv *fw_priv)
 {
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 
 	return  !!(priv_params->priv_flags & FW_PRIV_FALLBACK_UEVENT);
 }
 
 static inline bool fw_priv_nocache(struct fw_priv *fw_priv)
 {
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 
 	return !!(priv_params->priv_flags & FW_PRIV_NO_CACHE);
 }
 
 static inline bool fw_priv_optional(struct fw_priv *fw_priv)
 {
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 
 	return !!(priv_params->priv_flags & FW_PRIV_OPTIONAL);
 }
+
+/*
+ * These are kept to remain backward compatible with old behaviour. Do not
+ * modify them unless you know what you are doing. These are to be used only
+ * by the old API, so:
+ *
+ * Old sync APIs:
+ * 	o request_firmware():		__FW_REQ_FIRMWARE()
+ * 	o request_firmware_direct():	__FW_REQ_FIRMWARE_DIRECT()
+ *	o request_firmware_into_buf():	__FW_REQ_FIRMWARE_BUF()
+ *
+ * Old async API:
+ *	o request_firmware_nowait():	__FW_REQ_FIRMWARE_NOWAIT()
+ */
+#define __FW_REQ_FIRMWARE()						\
+	.priv_params = {						\
+		.priv_flags = FW_PRIV_FALLBACK |			\
+			      FW_PRIV_FALLBACK_UEVENT,			\
+	}
+
+#define __FW_REQ_FIRMWARE_DIRECT()					\
+	.req_params = {							\
+		.reqs = FW_REQ_OPTIONAL,				\
+	},								\
+	.priv_params = {						\
+		.priv_flags = FW_PRIV_FALLBACK_UEVENT |			\
+			      FW_PRIV_NO_FALLBACK,			\
+	}
+
+#define __FW_REQ_FIRMWARE_BUF(buf, size)				\
+	.priv_params = {						\
+		.priv_flags = FW_PRIV_FALLBACK |			\
+			      FW_PRIV_FALLBACK_UEVENT |			\
+			      FW_PRIV_NO_CACHE,				\
+		.pre_alloc_buf = buf,					\
+		.pre_alloc_buf_size = size,				\
+	}
+
+#define __FW_REQ_FIRMWARE_NOWAIT(module, uevent, gfp, async_cb, async_ctx) \
+	.req_params = {							\
+		.hold_module = module,					\
+		.gfp = gfp,						\
+		.cbs.async = {						\
+			.found_cb = NULL,				\
+			.found_ctx = async_ctx,				\
+		},							\
+	},								\
+	.priv_params = {						\
+		.mode = FW_API_ASYNC,					\
+		.old_async_cb = async_cb,				\
+		.priv_flags = FW_PRIV_FALLBACK |			\
+			     (uevent ?					\
+			      FW_PRIV_FALLBACK_UEVENT : 0),		\
+	}
+
+#define fw_async_ctx(params)		((params)->cbs.async.found_ctx)
 
 /* Builtin firmware support */
 
@@ -465,7 +544,8 @@ static void __free_fw_priv(struct kref *ref)
 	__releases(&fwc->lock)
 {
 	struct fw_priv *fw_priv = to_fw_priv(ref);
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 	struct firmware_cache *fwc = fw_priv->fwc;
 
 	pr_debug("%s: fw-%s fw_priv=%p data=%p size=%u\n",
@@ -520,7 +600,8 @@ static int
 fw_get_filesystem_firmware(struct device *device, struct firmware *fw)
 {
 	struct fw_priv *fw_priv = fw->priv;
-	struct fw_priv_params *priv_params = &fw_priv->priv_params;
+	struct fw_params *fw_params = &fw_priv->fw_params;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 	loff_t size;
 	int i, len;
 	int rc = -ENOENT;
@@ -1078,6 +1159,7 @@ static ssize_t firmware_data_write(struct file *filp, struct kobject *kobj,
 	struct device *dev = kobj_to_dev(kobj);
 	struct fw_sysfs *fw_sysfs = to_fw_sysfs(dev);
 	struct fw_priv *fw_priv;
+	struct fw_params *fw_params;
 	struct fw_priv_params *priv_params;
 	ssize_t retval;
 
@@ -1086,7 +1168,8 @@ static ssize_t firmware_data_write(struct file *filp, struct kobject *kobj,
 
 	mutex_lock(&fw_lock);
 	fw_priv = fw_sysfs->fw_priv;
-	priv_params = &fw_priv->priv_params;
+	fw_params = &fw_priv->fw_params;
+	priv_params = &fw_params->priv_params;
 	if (!fw_priv || fw_sysfs_done(fw_priv)) {
 		retval = -ENODEV;
 		goto out;
@@ -1399,11 +1482,12 @@ static void fw_abort_batch_reqs(struct firmware *fw)
 /* called from request_firmware() and request_firmware_work_func() */
 static int
 _request_firmware(const struct firmware **firmware_p, const char *name,
-		  struct fw_priv_params *priv_params,
+		  struct fw_params *fw_params,
 		  struct device *device)
 {
 	struct firmware *fw = NULL;
-	struct fw_priv *fw_priv = NULL;
+	struct fw_priv *fw_priv;
+	struct fw_priv_params *priv_params = &fw_params->priv_params;
 	int ret;
 
 	if (!firmware_p)
@@ -1419,8 +1503,7 @@ _request_firmware(const struct firmware **firmware_p, const char *name,
 		goto out;
 
 	fw_priv = fw->priv;
-	memcpy(&fw_priv->priv_params, priv_params,
-	       sizeof(struct fw_priv_params));
+	memcpy(&fw_priv->fw_params, fw_params, sizeof(struct fw_params));
 
 	ret = fw_get_filesystem_firmware(device, fw);
 	if (ret) {
@@ -1468,14 +1551,13 @@ request_firmware(const struct firmware **firmware_p, const char *name,
 		 struct device *device)
 {
 	int ret;
-	struct fw_priv_params priv_params = {
-		.priv_flags = FW_PRIV_FALLBACK |
-			      FW_PRIV_FALLBACK_UEVENT
+	struct fw_params fw_params = {
+		__FW_REQ_FIRMWARE(),
 	};
 
 	/* Need to pin this module until return */
 	__module_get(THIS_MODULE);
-	ret = _request_firmware(firmware_p, name, &priv_params, device);
+	ret = _request_firmware(firmware_p, name, &fw_params, device);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -1496,13 +1578,12 @@ int request_firmware_direct(const struct firmware **firmware_p,
 			    const char *name, struct device *device)
 {
 	int ret;
-	struct fw_priv_params priv_params = {
-		.priv_flags = FW_PRIV_FALLBACK_UEVENT |
-			      FW_PRIV_NO_FALLBACK
+	struct fw_params fw_params = {
+		__FW_REQ_FIRMWARE_DIRECT(),
 	};
 
 	__module_get(THIS_MODULE);
-	ret = _request_firmware(firmware_p, name, &priv_params, device);
+	ret = _request_firmware(firmware_p, name, &fw_params, device);
 	module_put(THIS_MODULE);
 	return ret;
 }
@@ -1528,17 +1609,14 @@ request_firmware_into_buf(const struct firmware **firmware_p, const char *name,
 			  struct device *device, void *buf, size_t size)
 {
 	int ret;
-	struct fw_priv_params priv_params = {
-		.priv_flags = FW_PRIV_FALLBACK |
-			      FW_PRIV_FALLBACK_UEVENT |
-			      FW_PRIV_NO_CACHE,
-		.pre_alloc_buf = buf,
-		.pre_alloc_buf_size = size
+	struct fw_params fw_params = {
+		__FW_REQ_FIRMWARE_BUF(buf, size),
 	};
 
 	__module_get(THIS_MODULE);
-	ret = _request_firmware(firmware_p, name, &priv_params, device);
+	ret = _request_firmware(firmware_p, name, &fw_params, device);
 	module_put(THIS_MODULE);
+
 	return ret;
 }
 EXPORT_SYMBOL(request_firmware_into_buf);
@@ -1560,28 +1638,30 @@ EXPORT_SYMBOL(release_firmware);
 /* Async support */
 struct firmware_work {
 	struct work_struct work;
-	struct module *module;
+	struct fw_params fw_params;
 	const char *name;
-	struct fw_priv_params priv_params;
 	struct device *device;
-	void *context;
-	void (*cont)(const struct firmware *fw, void *context);
 };
 
 static void request_firmware_work_func(struct work_struct *work)
 {
 	struct firmware_work *fw_work;
-	const struct firmware *fw;
+	struct fw_params *fw_params;
 	struct fw_priv_params *priv_params;
+	const struct fw_req_params *req_params;
 
 	fw_work = container_of(work, struct firmware_work, work);
-	priv_params = &fw_work->priv_params;
+	fw_params = &fw_work->fw_params;
+	priv_params = &fw_params->priv_params;
+	req_params = &fw_params->req_params;
 
-	_request_firmware(&fw, fw_work->name, priv_params, fw_work->device);
-	fw_work->cont(fw, fw_work->context);
+	_request_firmware(&fw_params->fw, fw_work->name,
+			  fw_params, fw_work->device);
+	priv_params->old_async_cb(fw_params->fw,
+				  fw_async_ctx(req_params));
 	put_device(fw_work->device); /* taken in request_firmware_nowait() */
 
-	module_put(fw_work->module);
+	module_put(req_params->hold_module);
 	kfree_const(fw_work->name);
 	kfree(fw_work);
 }
@@ -1616,27 +1696,24 @@ request_firmware_nowait(
 	void (*cont)(const struct firmware *fw, void *context))
 {
 	struct firmware_work *fw_work;
-	struct fw_priv_params priv_params = {
-		.mode = FW_API_ASYNC,
-		.priv_flags = FW_PRIV_FALLBACK |
-			     (uevent ? FW_PRIV_FALLBACK_UEVENT : 0)
+	struct fw_params fw_params = {
+		__FW_REQ_FIRMWARE_NOWAIT(module, uevent, gfp, cont, context),
 	};
+
+	if (!cont)
+		return -EINVAL;
 
 	fw_work = kzalloc(sizeof(struct firmware_work), gfp);
 	if (!fw_work)
 		return -ENOMEM;
 
-	fw_work->module = module;
 	fw_work->name = kstrdup_const(name, gfp);
 	if (!fw_work->name) {
 		kfree(fw_work);
 		return -ENOMEM;
 	}
 	fw_work->device = device;
-	fw_work->context = context;
-	fw_work->cont = cont;
-	memcpy(&fw_work->priv_params, &priv_params,
-	       sizeof(struct fw_priv_params));
+	memcpy(&fw_work->fw_params, &fw_params, sizeof(struct fw_params));
 
 	if (!try_module_get(module)) {
 		kfree_const(fw_work->name);
