@@ -13,6 +13,8 @@ struct firmware {
 	const u8 *data;
 	struct page **pages;
 
+	u8 api;
+
 	/* firmware loader private fields */
 	void *priv;
 };
