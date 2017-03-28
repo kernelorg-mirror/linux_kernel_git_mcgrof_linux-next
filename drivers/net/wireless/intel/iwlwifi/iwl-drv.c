@@ -66,7 +66,7 @@
  *****************************************************************************/
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
-#include <linux/firmware.h>
+#include <linux/driver_data.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 
@@ -206,36 +206,30 @@ static int iwl_alloc_fw_desc(struct iwl_drv *drv, struct fw_desc *desc,
 	return 0;
 }
 
-static void iwl_req_fw_callback(const struct firmware *ucode_raw,
-				void *context);
+static int iwl_req_fw_callback(const struct firmware *ucode_raw, void *context,
+			       int unused_error);
 
-static int iwl_request_firmware(struct iwl_drv *drv, bool first)
+static const char *iwl_get_fw_name_pre(struct iwl_drv *drv)
 {
-	const char *name_pre = drv->trans->cfg->fw_name_pre;
-	char tag[8];
+	const char *fw_pre_name;
 
-	if (first) {
-		drv->fw_index = drv->trans->cfg->ucode_api_max;
-		sprintf(tag, "%d", drv->fw_index);
-	} else {
-		drv->fw_index--;
-		sprintf(tag, "%d", drv->fw_index);
-	}
+	fw_pre_name = drv->trans->cfg->fw_name_pre;
 
-	if (drv->fw_index < drv->trans->cfg->ucode_api_min) {
-		IWL_ERR(drv, "no suitable firmware found!\n");
-		return -ENOENT;
-	}
+	return fw_pre_name;
+}
 
-	snprintf(drv->firmware_name, sizeof(drv->firmware_name), "%s%s.ucode",
-		 name_pre, tag);
+static int iwl_request_firmware(struct iwl_drv *drv)
+{
+	const char *name_pre = iwl_get_fw_name_pre(drv);
+	const struct iwl_cfg *cfg = drv->trans->cfg;
+	const struct driver_data_req_params req_params = {
+		DRIVER_DATA_API_CB(iwl_req_fw_callback, drv),
+		DRIVER_DATA_API(cfg->ucode_api_min, cfg->ucode_api_max, ".ucode"),
+	};
 
-	IWL_DEBUG_INFO(drv, "attempting to load firmware '%s'\n",
-		       drv->firmware_name);
-
-	return request_firmware_nowait(THIS_MODULE, 1, drv->firmware_name,
-				       drv->trans->dev,
-				       GFP_KERNEL, drv, iwl_req_fw_callback);
+	return driver_data_request_async(name_pre,
+					 &req_params,
+					 drv->trans->dev);
 }
 
 struct fw_img_parsing {
@@ -1237,7 +1231,8 @@ static void _iwl_op_mode_stop(struct iwl_drv *drv)
  * If loaded successfully, copies the firmware into buffers
  * for the card to fetch (via DMA).
  */
-static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
+static int iwl_req_fw_callback(const struct firmware *ucode_raw, void *context,
+			       int unused_error)
 {
 	struct iwl_drv *drv = context;
 	struct iwl_fw *fw = &drv->fw;
@@ -1260,10 +1255,12 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 
 	pieces = kzalloc(sizeof(*pieces), GFP_KERNEL);
 	if (!pieces)
-		return;
+		return -ENOMEM;
 
-	if (!ucode_raw)
-		goto try_again;
+	if (!ucode_raw) {
+		err = -ENOENT;
+		goto free;
+	}
 
 	IWL_DEBUG_INFO(drv, "Loaded firmware file '%s' (%zd bytes).\n",
 		       drv->firmware_name, ucode_raw->size);
@@ -1426,9 +1423,6 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 		fw->ucode_capa.standard_phy_calibration_size =
 			IWL_MAX_STANDARD_PHY_CALIBRATE_TBL_SIZE;
 
-	/* We have our copies now, allow OS release its copies */
-	release_firmware(ucode_raw);
-
 	mutex_lock(&iwlwifi_opmode_table_mtx);
 	switch (fw->type) {
 	case IWL_FW_DVM:
@@ -1483,16 +1477,12 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 	goto free;
 
  try_again:
-	/* try next, if any */
-	release_firmware(ucode_raw);
-	if (iwl_request_firmware(drv, false))
-		goto out_unbind;
+	err = -EAGAIN;
 	goto free;
 
  out_free_fw:
 	IWL_ERR(drv, "failed to allocate pci memory\n");
 	iwl_dealloc_ucode(drv);
-	release_firmware(ucode_raw);
  out_unbind:
 	complete(&drv->request_firmware_complete);
 	device_release_driver(drv->trans->dev);
@@ -1501,6 +1491,7 @@ static void iwl_req_fw_callback(const struct firmware *ucode_raw, void *context)
 		kfree(pieces->img[i].sec);
 	kfree(pieces->dbg_mem_tlv);
 	kfree(pieces);
+	return err;
 }
 
 struct iwl_drv *iwl_drv_start(struct iwl_trans *trans)
@@ -1541,11 +1532,9 @@ struct iwl_drv *iwl_drv_start(struct iwl_trans *trans)
 	}
 #endif
 
-	ret = iwl_request_firmware(drv, true);
-	if (ret) {
-		IWL_ERR(trans, "Couldn't request the fw\n");
+	ret = iwl_request_firmware(drv);
+	if (ret)
 		goto err_fw;
-	}
 
 	return drv;
 
