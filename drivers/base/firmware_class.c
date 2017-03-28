@@ -2,6 +2,7 @@
  * firmware_class.c - Multi purpose firmware loading support
  *
  * Copyright (c) 2003 Manuel Estrada Sainz
+ * Copyright (c) 2017 Luis R. Rodriguez <mcgrof@kernel.org>
  *
  * Please see Documentation/firmware_class/ for more information.
  *
@@ -41,12 +42,20 @@ MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
 MODULE_LICENSE("GPL");
 
+static const struct driver_data_reqs dfl_sync_reqs = {
+	.mode = DRIVER_DATA_SYNC,
+	.module = THIS_MODULE,
+	.gfp = GFP_KERNEL,
+};
+
 struct driver_data_priv_params {
 	bool use_fallback;
 	bool use_fallback_uevent;
 	bool no_cache;
 	void *alloc_buf;
 	size_t alloc_buf_size;
+	u8 api;
+	bool retry_api;
 };
 
 struct driver_data_params {
@@ -1262,6 +1271,7 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 			  struct device *device,
 			  struct driver_data_params *data_params)
 {
+	struct driver_data_priv_params *priv_params = &data_params->priv_params;
 	struct firmware *firmware;
 	struct firmware_buf *buf;
 	int ret;
@@ -1285,6 +1295,7 @@ _request_firmware_prepare(struct firmware **firmware_p, const char *name,
 	 * of requesting firmware.
 	 */
 	firmware->priv = buf;
+	firmware->api = priv_params->api;
 
 	if (ret > 0) {
 		ret = fw_state_wait(&buf->fw_st);
@@ -1460,6 +1471,128 @@ void release_firmware(const struct firmware *fw)
 }
 EXPORT_SYMBOL(release_firmware);
 
+static int _driver_data_request_api(struct driver_data_params *params,
+				    struct device *device,
+				    const char *name)
+{
+	struct driver_data_priv_params *priv_params = &params->priv_params;
+	const struct driver_data_req_params *req_params = &params->req_params;
+	int ret;
+	char *try_name;
+	u8 api_max;
+
+	if (priv_params->retry_api) {
+		if (!priv_params->api)
+			return -ENOENT;
+		api_max = priv_params->api - 1;
+	} else
+		api_max = req_params->api_max;
+
+	for (priv_params->api = api_max;
+	     priv_params->api >= req_params->api_min;
+	     priv_params->api--) {
+		if (req_params->api_name_postfix)
+			try_name = kasprintf(GFP_KERNEL, "%s%d%s",
+					     name,
+					     priv_params->api,
+					     req_params->api_name_postfix);
+		else
+			try_name = kasprintf(GFP_KERNEL, "%s%d",
+					     name,
+					     priv_params->api);
+		if (!try_name)
+			return -ENOMEM;
+		ret = _request_firmware(&params->driver_data, try_name,
+					params, device);
+		kfree(try_name);
+
+		if (!ret)
+			break;
+
+		release_firmware(params->driver_data);
+
+		/*
+		 * Only chug on with the API revision hunt if the file we
+		 * looked for really was not present. In case of memory issues
+		 * or other related system issues we want to bail right away
+		 * to not put strain on the system.
+		 */
+		if (ret != -ENOENT)
+			break;
+
+		if (!priv_params->api)
+			break;
+	}
+
+	return ret;
+}
+
+/**
+ * driver_data_request_sync - synchronous request for a driver data file
+ * @name: name of the driver data file
+ * @params: driver data parameters, it provides all the requirements
+ *	parameters which must be met for the file being requested.
+ * @device: device for which firmware is being loaded
+ *
+ * This performs a synchronous driver data lookup with the requirements
+ * specified on @params, if the file was found meeting the criteria requested
+ * 0 is returned. Access to the driver data data can be accessed through
+ * an optional callback set on the @desc. If the driver data is optional
+ * you must specify that on @params and if set you may provide an alternative
+ * callback which if set would be run if the driver data was not found.
+ *
+ * The driver data passed to the callbacks will be NULL unless it was
+ * found matching all the criteria on @params. 0 is always returned if the file
+ * was found unless a callback was provided, in which case the callback's
+ * return value will be passed. Unless the params->keep was set the kernel will
+ * release the driver data for you after your callbacks were processed.
+ *
+ * Reference counting is used during the duration of this call on both the
+ * device and module that made the request. This prevents any callers from
+ * freeing either the device or module prior to completion of this call.
+ */
+int driver_data_request_sync(const char *name,
+			     const struct driver_data_req_params *req_params,
+			     struct device *device)
+{
+	const struct firmware *driver_data;
+	const struct driver_data_reqs *sync_reqs;
+	struct driver_data_params params = {
+		.req_params = *req_params,
+	};
+	int ret;
+
+	if (!device || !req_params || !name || name[0] == '\0')
+		return -EINVAL;
+
+	if (req_params->sync_reqs.mode != DRIVER_DATA_SYNC)
+		return -EINVAL;
+
+	if (driver_data_sync_opt_cb(req_params) &&
+	    !driver_data_param_optional(req_params))
+		return -EINVAL;
+
+	sync_reqs = &dfl_sync_reqs;
+
+	__module_get(sync_reqs->module);
+	get_device(device);
+
+	ret = _request_firmware(&driver_data, name, &params, device);
+	if (ret && driver_data_param_optional(req_params))
+		ret = driver_data_sync_opt_call_cb(req_params);
+	else
+		ret = driver_data_sync_call_cb(req_params, driver_data);
+
+	if (!driver_data_param_keep(req_params))
+		release_firmware(driver_data);
+
+	put_device(device);
+	module_put(sync_reqs->module);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(driver_data_request_sync);
+
 /* Async support */
 struct firmware_work {
 	struct work_struct work;
@@ -1552,6 +1685,220 @@ request_firmware_nowait(
 	return 0;
 }
 EXPORT_SYMBOL(request_firmware_nowait);
+
+static int validate_api_versioning(struct driver_data_params *params)
+{
+	const struct driver_data_req_params *req_params = &params->req_params;
+
+	if (!req_params->api_max)
+		return -EINVAL;
+	if (req_params->api_max < req_params->api_min)
+		return -EINVAL;
+	if (driver_data_async_cb(req_params))
+		return -EINVAL;
+	if (driver_data_async_opt_cb(req_params))
+		return -EINVAL;
+
+	return 0;
+}
+
+static int __request_driver_data_api(struct firmware_work *driver_work)
+{
+	struct driver_data_params *params = &driver_work->data_params;
+	const struct driver_data_req_params *req_params = &params->req_params;
+	int ret;
+
+	ret = _driver_data_request_api(params, driver_work->device,
+				       driver_work->name);
+	/*
+	 * The default async optional callbacks don't work well here, so they
+	 * are not supported. Consider what we would return back, we'd need a
+	 * non-void optional callback to be able to feed the consumer.
+	 */
+	if (ret == -ENOENT)
+		dev_err(driver_work->device,
+			"No API file in range %u - %u could be found\n",
+			req_params->api_min, req_params->api_max);
+
+	return driver_data_async_call_api_cb(params->driver_data, req_params);
+}
+
+static void request_driver_data_single(struct firmware_work *driver_work)
+{
+	struct driver_data_params *params = &driver_work->data_params;
+	const struct driver_data_req_params *req_params = &params->req_params;
+	const struct driver_data_reqs *sync_reqs;
+	int ret;
+
+	sync_reqs = &req_params->sync_reqs;
+
+	ret = _request_firmware(&params->driver_data, driver_work->name,
+				params, driver_work->device);
+	if (ret &&
+	    driver_data_param_optional(req_params) &&
+	    driver_data_async_opt_cb(req_params))
+		driver_data_async_opt_call_cb(req_params);
+	else
+		driver_data_async_call_cb(params->driver_data, req_params);
+
+	if (!driver_data_param_keep(req_params))
+		release_firmware(params->driver_data);
+
+	put_device(driver_work->device);
+	module_put(sync_reqs->module);
+
+	kfree_const(driver_work->name);
+	kfree(driver_work);
+}
+
+/*
+ * Instead of recursion provide a deterministic limit based on the parameters,
+ * and consume less memory.
+ */
+static void request_driver_data_api(struct firmware_work *driver_work)
+{
+	struct driver_data_params *params = &driver_work->data_params;
+	struct driver_data_priv_params *priv_params = &params->priv_params;
+	const struct driver_data_req_params *req_params = &params->req_params;
+	const struct driver_data_reqs *sync_reqs;
+	int ret;
+	u8 i, limit;
+
+	limit = req_params->api_max - req_params->api_min;
+	sync_reqs = &req_params->sync_reqs;
+
+	for (i=0; i <= limit; i++) {
+		ret = validate_api_versioning(params);
+		if (WARN(ret, "Invalid API driver data request")) {
+			ret = driver_data_async_call_api_cb(NULL, req_params);
+			goto out;
+		}
+
+		/*
+		 * This does the real work of fetching the driver data through
+		 * all the API revisions possible. If found the api and its
+		 * return value are passed. If a value of 0 is passed then
+		 * *really* does mean everything was peachy. If we catch
+		 * -EAGAIN here it means the driver's API callback asked us to
+		 * try again.
+		 */
+		ret = __request_driver_data_api(driver_work);
+		if (!ret)
+			break;
+
+		priv_params->retry_api = true;
+
+		release_firmware(params->driver_data);
+
+		if (ret != -EAGAIN)
+			break;
+	}
+
+	if (ret && driver_data_param_optional(req_params))
+		driver_data_async_opt_call_cb(req_params);
+
+	if (!driver_data_param_keep(req_params))
+		release_firmware(params->driver_data);
+
+out:
+	put_device(driver_work->device);
+	module_put(sync_reqs->module);
+
+	kfree_const(driver_work->name);
+	kfree(driver_work);
+}
+
+static void request_driver_data_work_func(struct work_struct *work)
+{
+	struct firmware_work *driver_work;
+	struct driver_data_params *data_params;
+	const struct driver_data_req_params *req_params;
+
+	driver_work = container_of(work, struct firmware_work, work);
+	data_params = &driver_work->data_params;
+	req_params = &data_params->req_params;
+
+	if (driver_data_param_uses_api(req_params))
+		request_driver_data_api(driver_work);
+	else
+		request_driver_data_single(driver_work);
+}
+
+/**
+ * driver_data_request_async - asynchronous request for a driver data file
+ * @name: name of the driver data file
+ * @req_params: driver data file request parameters, it provides all the
+ *	requirements which must be met for the file being requested.
+ * @device: device for which firmware is being loaded
+ *
+ * This performs an asynchronous driver data file lookup with the requirements
+ * specified on @req_params. The request for the actual driver data file lookup
+ * will be scheduled with schedule_work() to be run at a later time. 0 is
+ * returned if we were able to asynchronously schedlue your work to be run.
+ *
+ * Reference counting is used during the duration of this scheduled call on
+ * both the device and module that made the request. This prevents any callers
+ * from freeing either the device or module prior to completion of the
+ * scheduled work.
+ *
+ * Access to the driver data file data can be accessed through an optional
+ * callback set on the @req_params. If the driver data file is optional you
+ * must specify that on @req_params and if set you may provide an alternative
+ * callback which if set would be run if the driver data file was not found.
+ *
+ * The driver data file passed to the callbacks will always be NULL unless it
+ * was found matching all the criteria on @req_params. Unless the desc->keep
+ * was set the kernel will release the driver data file for you after your
+ * callbacks were processed on the scheduled work.
+ */
+int driver_data_request_async(const char *name,
+			      const struct driver_data_req_params *req_params,
+			      struct device *device)
+{
+	struct firmware_work *driver_work;
+	const struct driver_data_reqs *sync_reqs;
+	struct firmware_work driver_work_stack = {
+		.data_params.req_params = *req_params,
+	};
+
+	if (!device || !req_params || !name || name[0] == '\0')
+		return -EINVAL;
+
+	if (req_params->sync_reqs.mode != DRIVER_DATA_ASYNC)
+		return -EINVAL;
+
+	if (driver_data_async_opt_cb(req_params) && !req_params->optional)
+		return -EINVAL;
+
+	sync_reqs = &req_params->sync_reqs;
+
+	driver_work = kzalloc(sizeof(struct firmware_work), sync_reqs->gfp);
+	if (!driver_work)
+		return -ENOMEM;
+
+	memcpy(driver_work, &driver_work_stack, sizeof(struct firmware_work));
+
+	driver_work->name = kstrdup_const(name, sync_reqs->gfp);
+	if (!driver_work->name) {
+		kfree(driver_work);
+		return -ENOMEM;
+	}
+	driver_work->device = device;
+
+	if (!try_module_get(sync_reqs->module)) {
+		kfree_const(driver_work->name);
+		kfree(driver_work);
+		return -EFAULT;
+	}
+
+	get_device(driver_work->device);
+
+	INIT_WORK(&driver_work->work, request_driver_data_work_func);
+	schedule_work(&driver_work->work);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(driver_data_request_async);
 
 #ifdef CONFIG_PM_SLEEP
 static ASYNC_DOMAIN_EXCLUSIVE(fw_cache_domain);
