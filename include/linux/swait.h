@@ -169,4 +169,29 @@ do {									\
 	__ret;								\
 })
 
+#define __swait_event_killable(wq, condition)				\
+	___swait_event(wq, condition, TASK_KILLABLE, 0, schedule())
+
+#define swait_event_killable(wq, condition)				\
+({									\
+	int __ret = 0;							\
+	if (!(condition))						\
+		__ret = __swait_event_killable(wq, condition);		\
+	__ret;								\
+})
+
+#define __swait_event_killable_timeout(wq, condition, timeout)		\
+	___swait_event(wq, ___wait_cond_timeout(condition),		\
+		       TASK_KILLABLE, timeout,				\
+		       __ret = schedule_timeout(__ret))
+
+#define swait_event_killable_timeout(wq, condition, timeout)		\
+({									\
+	long __ret = timeout;						\
+	if (!___wait_cond_timeout(condition))				\
+		__ret = __swait_event_killable_timeout(wq,		\
+						condition, timeout);	\
+	__ret;								\
+})
+
 #endif /* _LINUX_SWAIT_H */
