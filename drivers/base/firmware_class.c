@@ -131,7 +131,7 @@ static int __fw_state_wait_common(struct fw_state *fw_st, long timeout)
 {
 	long ret;
 
-	ret = swait_event_interruptible_timeout(fw_st->wq,
+	ret = swait_event_killable_timeout(fw_st->wq,
 				__fw_state_is_done(READ_ONCE(fw_st->status)),
 				timeout);
 	if (ret != 0 && fw_st->status == FW_STATUS_ABORTED)
