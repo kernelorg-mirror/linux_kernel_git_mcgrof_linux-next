@@ -20,6 +20,11 @@ int __init register_fw_debugfs(void)
 				 &fw_debug.force_sysfs_fallback))
 		goto err_out;
 
+	if (!debugfs_create_bool("ignore_sysfs_fallback", S_IRUSR | S_IWUSR,
+				 debugfs_firmware,
+				 &fw_debug.ignore_sysfs_fallback))
+		goto err_out;
+
 	return 0;
 err_out:
 	debugfs_remove_recursive(debugfs_firmware);
