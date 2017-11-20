@@ -36,6 +36,7 @@
 #include <generated/utsrelease.h>
 
 #include "base.h"
+#include "firmware_debug.h"
 
 MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
@@ -1158,6 +1159,9 @@ static bool fw_force_sysfs_fallback(unsigned int opt_flags)
 #else
 static bool fw_force_sysfs_fallback(unsigned int opt_flags)
 {
+	if (fw_debug_force_sysfs_fallback())
+		return true;
+
 	if (!(opt_flags & FW_OPT_USERHELPER))
 		return false;
 	return true;
@@ -1913,9 +1917,13 @@ static int __init firmware_class_init(void)
 	/* No need to unfold these on exit */
 	fw_cache_init();
 
-	ret = register_fw_pm_ops();
+	ret = register_fw_debugfs();
 	if (ret)
 		return ret;
+
+	ret = register_fw_pm_ops();
+	if (ret)
+		goto out_debugfs;
 
 	ret = register_reboot_notifier(&fw_shutdown_nb);
 	if (ret)
@@ -1925,6 +1933,8 @@ static int __init firmware_class_init(void)
 
 out:
 	unregister_fw_pm_ops();
+out_debugfs:
+	unregister_fw_debugfs();
 	return ret;
 }
 
@@ -1933,6 +1943,7 @@ static void __exit firmware_class_exit(void)
 	unregister_fw_pm_ops();
 	unregister_reboot_notifier(&fw_shutdown_nb);
 	unregister_sysfs_loader();
+	unregister_fw_debugfs();
 }
 
 fs_initcall(firmware_class_init);

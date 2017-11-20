@@ -149,6 +149,12 @@ config EXTRA_FIRMWARE_DIR
 config FW_LOADER_USER_HELPER
 	bool
 
+config FW_LOADER_DEBUG
+	bool "Firmware loader debugging interface"
+	help
+	  If you are hacking on the firmware API of the kernel, firmware_class,
+	  you can enable this to help debug the kernel.
+
 config FW_LOADER_USER_HELPER_FALLBACK
 	bool "Fallback user-helper invocation for firmware loading"
 	depends on FW_LOADER
