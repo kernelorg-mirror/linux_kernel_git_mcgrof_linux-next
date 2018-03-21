@@ -1170,7 +1170,7 @@ static void brcmf_usb_probe_phase2(struct device *dev, int ret,
 	ret = check_file(fw->data);
 	if (ret < 0) {
 		brcmf_err("invalid firmware\n");
-		release_firmware(fw);
+		firmware_release(fw);
 		goto error;
 	}
 
@@ -1178,7 +1178,7 @@ static void brcmf_usb_probe_phase2(struct device *dev, int ret,
 	devinfo->image_len = fw->size;
 
 	ret = brcmf_usb_fw_download(devinfo);
-	release_firmware(fw);
+	firmware_release(fw);
 	if (ret)
 		goto error;
 

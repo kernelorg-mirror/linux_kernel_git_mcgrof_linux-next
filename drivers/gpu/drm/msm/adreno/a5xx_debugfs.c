@@ -123,10 +123,10 @@ reset_set(void *data, u64 val)
 
 	mutex_lock(&dev->struct_mutex);
 
-	release_firmware(adreno_gpu->fw[ADRENO_FW_PM4]);
+	firmware_release(adreno_gpu->fw[ADRENO_FW_PM4]);
 	adreno_gpu->fw[ADRENO_FW_PM4] = NULL;
 
-	release_firmware(adreno_gpu->fw[ADRENO_FW_PFP]);
+	firmware_release(adreno_gpu->fw[ADRENO_FW_PFP]);
 	adreno_gpu->fw[ADRENO_FW_PFP] = NULL;
 
 	if (a5xx_gpu->pm4_bo) {

@@ -1173,7 +1173,7 @@ static void qtnf_fw_work_handler(struct work_struct *work)
 	if (flashboot) {
 		state |= QTN_RC_FW_FLASHBOOT;
 	} else {
-		ret = request_firmware(&fw, bus->fwname, &pdev->dev);
+		ret = firmware_request(&fw, bus->fwname, &pdev->dev);
 		if (ret < 0) {
 			pr_err("failed to get firmware %s\n", bus->fwname);
 			goto fw_load_fail;
@@ -1196,7 +1196,7 @@ static void qtnf_fw_work_handler(struct work_struct *work)
 		pr_info("starting firmware upload: %s\n", bus->fwname);
 
 		ret = qtnf_ep_fw_load(priv, fw->data, fw->size);
-		release_firmware(fw);
+		firmware_release(fw);
 		if (ret) {
 			pr_err("firmware upload error\n");
 			goto fw_load_fail;

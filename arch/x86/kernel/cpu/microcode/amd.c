@@ -747,7 +747,7 @@ static enum ucode_state request_microcode_amd(int cpu, struct device *device,
 	if (c->x86 >= 0x15)
 		snprintf(fw_name, sizeof(fw_name), "amd-ucode/microcode_amd_fam%.2xh.bin", c->x86);
 
-	if (request_firmware_direct(&fw, (const char *)fw_name, device)) {
+	if (firmware_request_direct(&fw, (const char *)fw_name, device)) {
 		pr_debug("failed to load file %s\n", fw_name);
 		goto out;
 	}
@@ -761,7 +761,7 @@ static enum ucode_state request_microcode_amd(int cpu, struct device *device,
 	ret = load_microcode_amd(bsp, c->x86, fw->data, fw->size);
 
  fw_release:
-	release_firmware(fw);
+	firmware_release(fw);
 
  out:
 	return ret;

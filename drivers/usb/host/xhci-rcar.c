@@ -161,7 +161,7 @@ static int xhci_rcar_download_firmware(struct usb_hcd *hcd)
 		firmware_name = priv->firmware_name;
 
 	/* request R-Car USB3.0 firmware */
-	retval = request_firmware(&fw, firmware_name, dev);
+	retval = firmware_request(&fw, firmware_name, dev);
 	if (retval)
 		return retval;
 
@@ -208,7 +208,7 @@ static int xhci_rcar_download_firmware(struct usb_hcd *hcd)
 	if (time == timeout)
 		retval = -ETIMEDOUT;
 
-	release_firmware(fw);
+	firmware_release(fw);
 
 	return retval;
 }

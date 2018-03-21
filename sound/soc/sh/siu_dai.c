@@ -740,7 +740,7 @@ static int siu_probe(struct platform_device *pdev)
 	siu_i2s_data = info;
 	info->dev = &pdev->dev;
 
-	ret = request_firmware(&fw_entry, "siu_spb.bin", &pdev->dev);
+	ret = firmware_request(&fw_entry, "siu_spb.bin", &pdev->dev);
 	if (ret)
 		return ret;
 
@@ -750,7 +750,7 @@ static int siu_probe(struct platform_device *pdev)
 	 */
 	memcpy(&info->fw, fw_entry->data, fw_entry->size);
 
-	release_firmware(fw_entry);
+	firmware_release(fw_entry);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)

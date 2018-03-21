@@ -336,7 +336,7 @@ static int gfx_v6_0_init_microcode(struct amdgpu_device *adev)
 	}
 
 	snprintf(fw_name, sizeof(fw_name), "radeon/%s_pfp.bin", chip_name);
-	err = request_firmware(&adev->gfx.pfp_fw, fw_name, adev->dev);
+	err = firmware_request(&adev->gfx.pfp_fw, fw_name, adev->dev);
 	if (err)
 		goto out;
 	err = amdgpu_ucode_validate(adev->gfx.pfp_fw);
@@ -347,7 +347,7 @@ static int gfx_v6_0_init_microcode(struct amdgpu_device *adev)
 	adev->gfx.pfp_feature_version = le32_to_cpu(cp_hdr->ucode_feature_version);
 
 	snprintf(fw_name, sizeof(fw_name), "radeon/%s_me.bin", chip_name);
-	err = request_firmware(&adev->gfx.me_fw, fw_name, adev->dev);
+	err = firmware_request(&adev->gfx.me_fw, fw_name, adev->dev);
 	if (err)
 		goto out;
 	err = amdgpu_ucode_validate(adev->gfx.me_fw);
@@ -358,7 +358,7 @@ static int gfx_v6_0_init_microcode(struct amdgpu_device *adev)
 	adev->gfx.me_feature_version = le32_to_cpu(cp_hdr->ucode_feature_version);
 
 	snprintf(fw_name, sizeof(fw_name), "radeon/%s_ce.bin", chip_name);
-	err = request_firmware(&adev->gfx.ce_fw, fw_name, adev->dev);
+	err = firmware_request(&adev->gfx.ce_fw, fw_name, adev->dev);
 	if (err)
 		goto out;
 	err = amdgpu_ucode_validate(adev->gfx.ce_fw);
@@ -369,7 +369,7 @@ static int gfx_v6_0_init_microcode(struct amdgpu_device *adev)
 	adev->gfx.ce_feature_version = le32_to_cpu(cp_hdr->ucode_feature_version);
 
 	snprintf(fw_name, sizeof(fw_name), "radeon/%s_rlc.bin", chip_name);
-	err = request_firmware(&adev->gfx.rlc_fw, fw_name, adev->dev);
+	err = firmware_request(&adev->gfx.rlc_fw, fw_name, adev->dev);
 	if (err)
 		goto out;
 	err = amdgpu_ucode_validate(adev->gfx.rlc_fw);
@@ -380,13 +380,13 @@ static int gfx_v6_0_init_microcode(struct amdgpu_device *adev)
 out:
 	if (err) {
 		pr_err("gfx6: Failed to load firmware \"%s\"\n", fw_name);
-		release_firmware(adev->gfx.pfp_fw);
+		firmware_release(adev->gfx.pfp_fw);
 		adev->gfx.pfp_fw = NULL;
-		release_firmware(adev->gfx.me_fw);
+		firmware_release(adev->gfx.me_fw);
 		adev->gfx.me_fw = NULL;
-		release_firmware(adev->gfx.ce_fw);
+		firmware_release(adev->gfx.ce_fw);
 		adev->gfx.ce_fw = NULL;
-		release_firmware(adev->gfx.rlc_fw);
+		firmware_release(adev->gfx.rlc_fw);
 		adev->gfx.rlc_fw = NULL;
 	}
 	return err;
