@@ -1253,7 +1253,7 @@ static int ngene_load_firm(struct ngene *dev)
 		break;
 	}
 
-	if (request_firmware(&fw, fw_name, &dev->pci_dev->dev) < 0) {
+	if (firmware_request(&fw, fw_name, &dev->pci_dev->dev) < 0) {
 		dev_err(pdev, "Could not load firmware file %s.\n", fw_name);
 		dev_info(pdev, "Copy %s to your hotplug directory!\n",
 			 fw_name);
@@ -1270,7 +1270,7 @@ static int ngene_load_firm(struct ngene *dev)
 		err = ngene_command_load_firmware(dev, ngene_fw, size);
 	}
 
-	release_firmware(fw);
+	firmware_release(fw);
 
 	return err;
 }

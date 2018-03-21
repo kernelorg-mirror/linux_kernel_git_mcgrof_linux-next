@@ -411,7 +411,7 @@ static void csr_load_work_fn(struct work_struct *work)
 	dev_priv = container_of(work, typeof(*dev_priv), csr.work);
 	csr = &dev_priv->csr;
 
-	request_firmware(&fw, dev_priv->csr.fw_path, &dev_priv->drm.pdev->dev);
+	firmware_request(&fw, dev_priv->csr.fw_path, &dev_priv->drm.pdev->dev);
 	if (fw)
 		dev_priv->csr.dmc_payload = parse_csr_fw(dev_priv, fw);
 
@@ -433,7 +433,7 @@ static void csr_load_work_fn(struct work_struct *work)
 			   INTEL_UC_FIRMWARE_URL);
 	}
 
-	release_firmware(fw);
+	firmware_release(fw);
 }
 
 /**

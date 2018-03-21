@@ -137,7 +137,7 @@ static int gmc_v6_0_init_microcode(struct amdgpu_device *adev)
 		snprintf(fw_name, sizeof(fw_name), "radeon/si58_mc.bin");
 	else
 		snprintf(fw_name, sizeof(fw_name), "radeon/%s_mc.bin", chip_name);
-	err = request_firmware(&adev->gmc.fw, fw_name, adev->dev);
+	err = firmware_request(&adev->gmc.fw, fw_name, adev->dev);
 	if (err)
 		goto out;
 
@@ -148,7 +148,7 @@ out:
 		dev_err(adev->dev,
 		       "si_mc: Failed to load firmware \"%s\"\n",
 		       fw_name);
-		release_firmware(adev->gmc.fw);
+		firmware_release(adev->gmc.fw);
 		adev->gmc.fw = NULL;
 	}
 	return err;
@@ -916,7 +916,7 @@ static int gmc_v6_0_sw_fini(void *handle)
 	amdgpu_vm_manager_fini(adev);
 	gmc_v6_0_gart_fini(adev);
 	amdgpu_bo_fini(adev);
-	release_firmware(adev->gmc.fw);
+	firmware_release(adev->gmc.fw);
 	adev->gmc.fw = NULL;
 
 	return 0;

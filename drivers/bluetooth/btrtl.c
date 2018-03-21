@@ -330,7 +330,7 @@ static int rtl_load_config(struct hci_dev *hdev, const char *name, u8 **buff)
 	int ret;
 
 	bt_dev_info(hdev, "rtl: loading %s", name);
-	ret = request_firmware(&fw, name, &hdev->dev);
+	ret = firmware_request(&fw, name, &hdev->dev);
 	if (ret < 0)
 		return ret;
 	ret = fw->size;
@@ -338,7 +338,7 @@ static int rtl_load_config(struct hci_dev *hdev, const char *name, u8 **buff)
 	if (!*buff)
 		ret = -ENOMEM;
 
-	release_firmware(fw);
+	firmware_release(fw);
 
 	return ret;
 }
@@ -349,7 +349,7 @@ static int btrtl_setup_rtl8723a(struct hci_dev *hdev)
 	int ret;
 
 	bt_dev_info(hdev, "rtl: loading rtl_bt/rtl8723a_fw.bin");
-	ret = request_firmware(&fw, "rtl_bt/rtl8723a_fw.bin", &hdev->dev);
+	ret = firmware_request(&fw, "rtl_bt/rtl8723a_fw.bin", &hdev->dev);
 	if (ret < 0) {
 		BT_ERR("%s: Failed to load rtl_bt/rtl8723a_fw.bin", hdev->name);
 		return ret;
@@ -372,7 +372,7 @@ static int btrtl_setup_rtl8723a(struct hci_dev *hdev)
 	ret = rtl_download_firmware(hdev, fw->data, fw->size);
 
 out:
-	release_firmware(fw);
+	firmware_release(fw);
 	return ret;
 }
 
@@ -421,7 +421,7 @@ static int btrtl_setup_rtl8723b(struct hci_dev *hdev, u16 hci_rev,
 
 	fw_name = ic_id_table[i].fw_name;
 	bt_dev_info(hdev, "rtl: loading %s", fw_name);
-	ret = request_firmware(&fw, fw_name, &hdev->dev);
+	ret = firmware_request(&fw, fw_name, &hdev->dev);
 	if (ret < 0) {
 		BT_ERR("%s: Failed to load %s", hdev->name, fw_name);
 		goto err_req_fw;
@@ -452,7 +452,7 @@ static int btrtl_setup_rtl8723b(struct hci_dev *hdev, u16 hci_rev,
 	ret = rtl_download_firmware(hdev, fw_data, ret);
 
 out:
-	release_firmware(fw);
+	firmware_release(fw);
 	kfree(fw_data);
 err_req_fw:
 	if (cfg_sz)
