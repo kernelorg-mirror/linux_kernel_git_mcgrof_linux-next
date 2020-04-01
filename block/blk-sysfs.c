@@ -895,6 +895,7 @@ static void __blk_release_queue(struct work_struct *work)
 
 	blk_trace_shutdown(q);
 
+	blk_q_debugfs_unregister(q);
 	if (queue_is_mq(q))
 		blk_mq_debugfs_unregister(q);
 
@@ -974,6 +975,8 @@ int blk_register_queue(struct gendisk *disk)
 		kobject_put(&dev->kobj);
 		goto unlock;
 	}
+
+	blk_q_debugfs_register(q);
 
 	if (queue_is_mq(q)) {
 		__blk_mq_register_dev(dev, q);
