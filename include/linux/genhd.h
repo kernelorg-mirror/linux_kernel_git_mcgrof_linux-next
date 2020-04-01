@@ -76,6 +76,7 @@ struct hd_struct {
 	int make_it_fail;
 #endif
 	struct rcu_work rcu_work;
+	struct dentry *debugfs_dir;
 };
 
 /**
