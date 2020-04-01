@@ -1548,6 +1548,7 @@ sg_add_device(struct device *cl_dev, struct class_interface *cl_intf)
 		goto out;
 	}
 
+	blk_queue_debugfs_register(sdp->device->request_queue, disk->disk_name);
 	error = cdev_add(cdev, MKDEV(SCSI_GENERIC_MAJOR, sdp->index), 1);
 	if (error)
 		goto cdev_add_err;
@@ -1644,6 +1645,7 @@ sg_remove_device(struct device *cl_dev, struct class_interface *cl_intf)
 
 	sysfs_remove_link(&scsidp->sdev_gendev.kobj, "generic");
 	device_destroy(sg_sysfs_class, MKDEV(SCSI_GENERIC_MAJOR, sdp->index));
+	blk_queue_debugfs_unregister(sdp->device->request_queue);
 	cdev_del(sdp->cdev);
 	sdp->cdev = NULL;
 

@@ -561,8 +561,11 @@ struct request_queue {
 	struct list_head	tag_set_list;
 	struct bio_set		bio_split;
 
-#ifdef CONFIG_BLK_DEBUG_FS
+#ifdef CONFIG_DEBUG_FS
+	/* Used by block/blk-*debugfs.c and kernel/trace/blktrace.c */
 	struct dentry		*debugfs_dir;
+#endif
+#ifdef CONFIG_BLK_DEBUG_FS
 	struct dentry		*sched_debugfs_dir;
 	struct dentry		*rqos_debugfs_dir;
 #endif

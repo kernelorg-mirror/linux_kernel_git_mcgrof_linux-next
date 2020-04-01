@@ -86,6 +86,10 @@ struct hd_struct {
 #endif
 	struct percpu_ref ref;
 	struct rcu_work rcu_work;
+#ifdef CONFIG_DEBUG_FS
+	/* Currently only used by kernel/trace/blktrace.c */
+	struct dentry *debugfs_dir;
+#endif
 };
 
 /**
@@ -381,5 +385,19 @@ static inline dev_t blk_lookup_devt(const char *name, int partno)
 	return devt;
 }
 #endif /* CONFIG_BLOCK */
+
+#ifdef CONFIG_DEBUG_FS
+void blk_queue_debugfs_register(struct request_queue *q, const char *name);
+void blk_queue_debugfs_unregister(struct request_queue *q);
+#else
+static inline void blk_queue_debugfs_register(struct request_queue *q,
+					      const char *name)
+{
+}
+
+static inline void blk_queue_debugfs_unregister(struct request_queue *q)
+{
+}
+#endif /* CONFIG_DEBUG_FS */
 
 #endif /* _LINUX_GENHD_H */

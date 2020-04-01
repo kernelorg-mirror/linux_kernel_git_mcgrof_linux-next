@@ -312,6 +312,7 @@ void delete_partition(struct gendisk *disk, struct hd_struct *part)
 	rcu_assign_pointer(ptbl->part[part->partno], NULL);
 	rcu_assign_pointer(ptbl->last_lookup, NULL);
 	kobject_put(part->holder_dir);
+	blk_part_debugfs_unregister(part);
 	device_del(part_to_dev(part));
 
 	/*
@@ -432,6 +433,8 @@ static struct hd_struct *add_partition(struct gendisk *disk, int partno,
 	p->holder_dir = kobject_create_and_add("holders", &pdev->kobj);
 	if (!p->holder_dir)
 		goto out_del;
+
+	blk_part_debugfs_register(p, dev_name(pdev));
 
 	dev_set_uevent_suppress(pdev, 0);
 	if (flags & ADDPART_FLAG_WHOLEDISK) {

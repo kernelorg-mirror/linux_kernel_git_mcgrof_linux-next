@@ -3,6 +3,7 @@
  * Copyright (C) 2006 Jens Axboe <axboe@kernel.dk>
  *
  */
+
 #include <linux/kernel.h>
 #include <linux/blkdev.h>
 #include <linux/blktrace_api.h>
@@ -311,7 +312,6 @@ static void blk_trace_free(struct blk_trace *bt)
 	debugfs_remove(bt->msg_file);
 	debugfs_remove(bt->dropped_file);
 	relay_close(bt->rchan);
-	debugfs_remove(bt->dir);
 	free_percpu(bt->sequence);
 	free_percpu(bt->msg_data);
 	kfree(bt);
@@ -468,16 +468,25 @@ static void blk_trace_setup_lba(struct blk_trace *bt,
 	}
 }
 
-static struct dentry *blk_trace_debugfs_dir(struct blk_user_trace_setup *buts,
-					    struct blk_trace *bt)
+static struct dentry *blk_trace_debugfs_dir(struct block_device *bdev,
+					    struct request_queue *q)
 {
-	struct dentry *dir = NULL;
+	struct hd_struct *p = NULL;
 
-	dir = debugfs_lookup(buts->name, blk_debugfs_root);
-	if (!dir)
-		bt->dir = dir = debugfs_create_dir(buts->name, blk_debugfs_root);
+	/*
+	 * Some drivers like scsi-generic use a NULL block device. For
+	 * other drivers when bdev != bdev->bd_contain we are doing a blktrace
+	 * on a parition, otherwise we know we are working on the whole
+	 * disk, and for that the request_queue already has its own debugfs_dir.
+	 * which we have been using for other things other than blktrace.
+	 */
+	if (bdev && bdev != bdev->bd_contains)
+		p = bdev->bd_part;
 
-	return dir;
+	if (p)
+		return p->debugfs_dir;
+
+	return q->debugfs_dir;
 }
 
 /*
@@ -490,6 +499,7 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 	struct blk_trace *bt = NULL;
 	struct dentry *dir = NULL;
 	int ret;
+
 
 	if (!buts->buf_size || !buts->buf_nr)
 		return -EINVAL;
@@ -521,7 +531,9 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = -ENOENT;
 
-	dir = blk_trace_debugfs_dir(buts, bt);
+	dir = blk_trace_debugfs_dir(bdev, q);
+	if (WARN_ON(!dir))
+		goto err;
 
 	bt->dev = dev;
 	atomic_set(&bt->dropped, 0);
@@ -561,8 +573,6 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = 0;
 err:
-	if (dir && !bt->dir)
-		dput(dir);
 	if (ret)
 		blk_trace_free(bt);
 	return ret;
