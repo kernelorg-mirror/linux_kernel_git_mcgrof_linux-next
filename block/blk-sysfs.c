@@ -862,8 +862,8 @@ static void blk_exit_queue(struct request_queue *q)
 
 
 /**
- * __blk_release_queue - release a request queue
- * @work: pointer to the release_work member of the request queue to be released
+ * blk_release_queue - release a request queue
+ * @kojb: pointer to the kobj representing the request queue
  *
  * Description:
  *     This function is called when a block device is being unregistered. The
@@ -873,9 +873,10 @@ static void blk_exit_queue(struct request_queue *q)
  *     of the request queue reaches zero, blk_release_queue is called to release
  *     all allocated resources of the request queue.
  */
-static void __blk_release_queue(struct work_struct *work)
+static void blk_release_queue(struct kobject *kobj)
 {
-	struct request_queue *q = container_of(work, typeof(*q), release_work);
+	struct request_queue *q =
+		container_of(kobj, struct request_queue, kobj);
 
 	if (test_bit(QUEUE_FLAG_POLL_STATS, &q->queue_flags))
 		blk_stat_remove_callback(q, q->poll_cb);
@@ -903,15 +904,6 @@ static void __blk_release_queue(struct work_struct *work)
 
 	ida_simple_remove(&blk_queue_ida, q->id);
 	call_rcu(&q->rcu_head, blk_free_queue_rcu);
-}
-
-static void blk_release_queue(struct kobject *kobj)
-{
-	struct request_queue *q =
-		container_of(kobj, struct request_queue, kobj);
-
-	INIT_WORK(&q->release_work, __blk_release_queue);
-	schedule_work(&q->release_work);
 }
 
 static const struct sysfs_ops queue_sysfs_ops = {
