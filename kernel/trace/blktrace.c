@@ -3,6 +3,9 @@
  * Copyright (C) 2006 Jens Axboe <axboe@kernel.dk>
  *
  */
+
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/kernel.h>
 #include <linux/blkdev.h>
 #include <linux/blktrace_api.h>
@@ -311,7 +314,15 @@ static void blk_trace_free(struct blk_trace *bt)
 	debugfs_remove(bt->msg_file);
 	debugfs_remove(bt->dropped_file);
 	relay_close(bt->rchan);
-	debugfs_remove(bt->dir);
+	/*
+	 * backing_dir is set when we use the request_queue debugfs directory.
+	 * Otherwise we are using a temporary directory created only for the
+	 * purpose of blktrace.
+	 */
+	if (bt->backing_dir)
+		dput(bt->backing_dir);
+	else
+		debugfs_remove(bt->dir);
 	free_percpu(bt->sequence);
 	free_percpu(bt->msg_data);
 	kfree(bt);
@@ -468,16 +479,89 @@ static void blk_trace_setup_lba(struct blk_trace *bt,
 	}
 }
 
+static bool blk_trace_target_disk(const char *target, const char *diskname)
+{
+	if (strlen(target) != strlen(diskname))
+		return false;
+
+	if (!strncmp(target, diskname,
+		     min_t(size_t, strlen(target), strlen(diskname))))
+		return true;
+
+	return false;
+}
+
 static struct dentry *blk_trace_debugfs_dir(struct blk_user_trace_setup *buts,
+					    struct request_queue *q,
 					    struct blk_trace *bt)
 {
 	struct dentry *dir = NULL;
 
-	dir = debugfs_lookup(buts->name, blk_debugfs_root);
-	if (!dir)
-		bt->dir = dir = debugfs_create_dir(buts->name, blk_debugfs_root);
+	/* This can only happen if we have a bug on our lower layers */
+	if (!q->kobj.parent) {
+		pr_warn("%s: request_queue parent is gone\n", buts->name);
+		return NULL;
+	}
 
-	return dir;
+	/*
+	 * From a sysfs kobject perspective, the request_queue sits on top of
+	 * the gendisk, which has the name of the disk. We always create a
+	 * debugfs directory upon init for this gendisk kobject, so we re-use
+	 * that if blktrace is going to be done for it.
+	 */
+	if (blk_trace_target_disk(buts->name, kobject_name(q->kobj.parent))) {
+		if (!q->debugfs_dir) {
+			pr_warn("%s: expected request_queue debugfs_dir is not set\n",
+				buts->name);
+			return NULL;
+		}
+		/*
+		 * debugfs_lookup() is used to ensure the directory is not
+		 * taken from underneath us. We must dput() it later once
+		 * done with it within blktrace.
+		 */
+		dir = debugfs_lookup(buts->name, blk_debugfs_root);
+		if (!dir) {
+			pr_warn("%s: expected request_queue debugfs_dir dentry is gone\n",
+				buts->name);
+			return NULL;
+		}
+		 /*
+		 * This is a reaffirmation that debugfs_lookup() shall always
+		 * return the same dentry if it was already set.
+		 */
+		if (dir != q->debugfs_dir) {
+			dput(dir);
+			pr_warn("%s: expected dentry dir != q->debugfs_dir\n",
+				buts->name);
+			return NULL;
+		}
+		bt->backing_dir = q->debugfs_dir;
+		return bt->backing_dir;
+	}
+
+	/*
+	 * If not using blktrace on the gendisk, we are going to create a
+	 * temporary debugfs directory for it, however this cannot be shared
+	 * between two concurrent blktraces since the path is not unique, so
+	 * ensure this is only done once.
+	 */
+	dir = debugfs_lookup(buts->name, blk_debugfs_root);
+	if (dir) {
+		pr_warn("%s: temporary blktrace debugfs directory already present\n",
+			buts->name);
+		dput(dir);
+		return NULL;
+	}
+
+	bt->dir = debugfs_create_dir(buts->name, blk_debugfs_root);
+	if (!bt->dir) {
+		pr_warn("%s: temporary blktrace debugfs directory could not be created\n",
+			buts->name);
+		return NULL;
+	}
+
+	return bt->dir;
 }
 
 /*
@@ -521,7 +605,9 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = -ENOENT;
 
-	dir = blk_trace_debugfs_dir(buts, bt);
+	dir = blk_trace_debugfs_dir(buts, q, bt);
+	if (!dir)
+		goto err;
 
 	bt->dev = dev;
 	atomic_set(&bt->dropped, 0);
@@ -561,8 +647,6 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = 0;
 err:
-	if (dir && !bt->dir)
-		dput(dir);
 	if (ret)
 		blk_trace_free(bt);
 	return ret;

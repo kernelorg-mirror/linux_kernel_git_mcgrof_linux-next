@@ -895,6 +895,7 @@ static void __blk_release_queue(struct work_struct *work)
 
 	blk_trace_shutdown(q);
 
+	blk_queue_debugfs_unregister(q);
 	if (queue_is_mq(q))
 		blk_mq_debugfs_unregister(q);
 
@@ -968,6 +969,14 @@ int blk_register_queue(struct gendisk *disk)
 	}
 
 	ret = sysfs_create_group(&q->kobj, &queue_attr_group);
+	if (ret) {
+		blk_trace_remove_sysfs(dev);
+		kobject_del(&q->kobj);
+		kobject_put(&dev->kobj);
+		goto unlock;
+	}
+
+	ret = blk_queue_debugfs_register(q);
 	if (ret) {
 		blk_trace_remove_sysfs(dev);
 		kobject_del(&q->kobj);
