@@ -971,6 +971,7 @@ static int ch_probe(struct device *dev)
 
 	mutex_unlock(&ch->lock);
 	dev_set_drvdata(dev, ch);
+	blk_queue_debugfs_register(sd->request_queue, dev_name(class_dev));
 	sdev_printk(KERN_INFO, sd, "Attached scsi changer %s\n", ch->name);
 
 	return 0;

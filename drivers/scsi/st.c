@@ -4417,6 +4417,8 @@ static int st_probe(struct device *dev)
 	if (error)
 		goto out_remove_devs;
 	scsi_autopm_put_device(SDp);
+	blk_queue_debugfs_register(tpnt->device->request_queue,
+				   tape_name(tpnt));
 
 	sdev_printk(KERN_NOTICE, SDp,
 		    "Attached scsi tape %s\n", tape_name(tpnt));

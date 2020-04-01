@@ -86,6 +86,9 @@ struct hd_struct {
 #endif
 	struct percpu_ref ref;
 	struct rcu_work rcu_work;
+#ifdef CONFIG_DEBUG_FS
+	struct dentry *debugfs_sym;
+#endif
 };
 
 /**
@@ -390,5 +393,71 @@ static inline dev_t blk_lookup_devt(const char *name, int partno)
 	return devt;
 }
 #endif /* CONFIG_BLOCK */
+
+#ifdef CONFIG_DEBUG_FS
+void blk_queue_debugfs_register(struct request_queue *q, const char *name);
+struct dentry *blk_queue_debugfs_symlink(struct request_queue *q,
+					 const char *src,
+					 const char *dst);
+#ifdef CONFIG_BLK_DEV_BSG
+void blk_debugfs_register_bsg(void);
+void blk_queue_debugfs_register_bsg(struct request_queue *q, const char *name);
+struct dentry *blk_queue_debugfs_bsg_symlink(struct request_queue *q,
+					     const char *src,
+					     const char *dst);
+#else
+
+static inline void blk_debugfs_register_bsg(void)
+{
+}
+
+/* If bsg is not enabled we use the base directory */
+static inline void blk_queue_debugfs_register_bsg(struct request_queue *q,
+						  const char *name)
+{
+	blk_queue_debugfs_register(q, name);
+}
+
+static inline
+struct dentry *blk_queue_debugfs_bsg_symlink(struct request_queue *q,
+					     const char *src,
+					     const char *dst)
+{
+	return blk_queue_debugfs_symlink(q, src, dst);
+}
+
+#endif /* CONFIG_BLK_DEV_BSG */
+#else  /* ! CONFIG_DEBUG_FS */
+static inline void blk_queue_debugfs_register(struct request_queue *q,
+					      const char *name)
+{
+}
+
+struct dentry *blk_queue_debugfs_symlink(struct request_queue *q,
+					 const char *src,
+					 const char *dst)
+{
+	return ERR_PTR(-ENODEV);
+}
+
+#ifdef CONFIG_BLK_DEV_BSG
+static inline void blk_debugfs_register_bsg(void)
+{
+}
+#endif /* CONFIG_BLK_DEV_BSG */
+
+static inline void blk_queue_debugfs_register_bsg(struct request_queue *q,
+						  const char *name)
+{
+}
+
+static inline
+struct dentry *blk_queue_debugfs_bsg_symlink(struct request_queue *q,
+					     const char *src,
+					     const char *dst)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif /* CONFIG_DEBUG_FS */
 
 #endif /* _LINUX_GENHD_H */
