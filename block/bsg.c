@@ -503,6 +503,8 @@ static int __init bsg_init(void)
 	if (ret)
 		goto unregister_chrdev;
 
+	blk_debugfs_register_bsg();
+
 	printk(KERN_INFO BSG_DESCRIPTION " version " BSG_VERSION
 	       " loaded (major %d)\n", bsg_major);
 	return 0;
