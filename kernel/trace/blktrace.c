@@ -311,7 +311,6 @@ static void blk_trace_free(struct blk_trace *bt)
 	debugfs_remove(bt->msg_file);
 	debugfs_remove(bt->dropped_file);
 	relay_close(bt->rchan);
-	debugfs_remove(bt->dir);
 	free_percpu(bt->sequence);
 	free_percpu(bt->msg_data);
 	kfree(bt);
@@ -509,9 +508,24 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = -ENOENT;
 
-	dir = debugfs_lookup(buts->name, blk_debugfs_root);
-	if (!dir)
-		bt->dir = dir = debugfs_create_dir(buts->name, blk_debugfs_root);
+	dir = q->debugfs_dir;
+
+	/*
+	 * Although the directory here is from debugfs, and we typically do not
+	 * care about NULL dirs as debugfs is typically only used for debugging,
+	 * we rely on the directory to exist to place files which we then use
+	 * for blktrace userspace functionality. Without this directory
+	 * blktrace would not work. Enabling blktrace functionality enables
+	 * debugfs too, as such, we *really* do want to check for this and must
+	 * ensure it was set before chugging on. If NULL were used below, we'd
+	 * also end up creating the debugfs files under the block root
+	 * directory, which we definitely do not want.
+	 */
+	if (IS_ERR_OR_NULL(dir)) {
+		pr_warn("debugfs_dir not present for %s so skipping\n",
+			buts->name);
+		goto err;
+	}
 
 	bt->dev = dev;
 	atomic_set(&bt->dropped, 0);
@@ -551,8 +565,6 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = 0;
 err:
-	if (dir && !bt->dir)
-		dput(dir);
 	if (ret)
 		blk_trace_free(bt);
 	return ret;

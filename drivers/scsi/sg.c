@@ -47,6 +47,7 @@ static int sg_version_num = 30536;	/* 2 digits for each component */
 #include <linux/ratelimit.h>
 #include <linux/uio.h>
 #include <linux/cred.h> /* for sg_check_file_access() */
+#include <linux/debugfs.h>
 
 #include "scsi.h"
 #include <scsi/scsi_dbg.h>
@@ -169,6 +170,10 @@ typedef struct sg_device { /* holds the state of each scsi generic device */
 	struct gendisk *disk;
 	struct cdev * cdev;	/* char_dev [sysfs: /sys/cdev/major/sg<n>] */
 	struct kref d_ref;
+#ifdef CONFIG_DEBUG_FS
+	bool debugfs_set;
+	struct dentry *debugfs_sym;
+#endif
 } Sg_device;
 
 /* tasklet or soft irq callback */
@@ -914,6 +919,72 @@ static int put_compat_request_table(struct compat_sg_req_info __user *o,
 }
 #endif
 
+#ifdef CONFIG_DEBUG_FS
+/*
+ * For scsi-generic devices like TYPE_DISK will re-use the scsi_device
+ * request_queue on their driver for their disk and later device_add_disk() it,
+ * we want its respective scsi-generic debugfs_dir to just be a symlink to the
+ * one created on the real scsi device probe.
+ *
+ * We use this on the ioctl path instead of sg_add_device() since some driver
+ * probes can run asynchronously. Such is the case for scsi devices of
+ * TYPE_DISK, and the class interface currently has no callbacks once a device
+ * driver probe has completed its probe. We don't use wait_for_device_probe()
+ * on sg_add_device() as that would defeat the purpose of using asynchronous
+ * probe.
+ */
+static void sg_init_blktrace_setup(Sg_device *sdp)
+{
+	struct scsi_device *scsidp = sdp->device;
+	struct device *scsi_dev = &scsidp->sdev_gendev;
+	struct gendisk *sg_disk = sdp->disk;
+	struct request_queue *q = scsidp->request_queue;
+
+	/*
+	 * Although debugfs is used for debugging purposes and we
+	 * typically don't care about the return value, we do here
+	 * because we use it for userspace to ensure blktrace works.
+	 *
+	 * Instead of always just checking for the return value though,
+	 * just try setting this once, if the first time failed we don't
+	 * try again.
+	 */
+	if (sdp->debugfs_set)
+		return;
+
+	switch (sdp->device->type) {
+	case TYPE_RAID:
+		/*
+		 * We do the registration for bsg here to keep bsg scsi_device
+		 * opaque. If bsg is disabled we just create the debugfs_dir on
+		 * the base block debugfs_dir and scsi-generic symlinks to it.
+		 */
+		blk_queue_debugfs_register_bsg(q, dev_name(scsi_dev));
+		sdp->debugfs_sym =
+			blk_queue_debugfs_bsg_symlink(q,
+						      sg_disk->disk_name,
+						      dev_name(scsi_dev));
+		break;
+	default:
+		/*
+		 * We don't know scsi_device probed device name (this is
+		 * different from the scsi_device name). This is opaque to
+		 * scsi-generic, so we use the request_queue to infer the name
+		 * based on the set debugfs_dir.
+		 */
+		sdp->debugfs_sym = blk_queue_debugfs_symlink(q,
+							     sg_disk->disk_name,
+							     NULL);
+		break;
+	}
+	sdp->debugfs_set = true;
+}
+#else
+static void sg_init_blktrace_setup(Sg_device *sdp)
+{
+}
+#endif
+
 static long
 sg_ioctl_common(struct file *filp, Sg_device *sdp, Sg_fd *sfp,
 		unsigned int cmd_in, void __user *p)
@@ -1117,6 +1188,7 @@ sg_ioctl_common(struct file *filp, Sg_device *sdp, Sg_fd *sfp,
 		return put_user(max_sectors_bytes(sdp->device->request_queue),
 				ip);
 	case BLKTRACESETUP:
+		sg_init_blktrace_setup(sdp);
 		return blk_trace_setup(sdp->device->request_queue,
 				       sdp->disk->disk_name,
 				       MKDEV(SCSI_GENERIC_MAJOR, sdp->index),
@@ -1644,6 +1716,9 @@ sg_remove_device(struct device *cl_dev, struct class_interface *cl_intf)
 
 	sysfs_remove_link(&scsidp->sdev_gendev.kobj, "generic");
 	device_destroy(sg_sysfs_class, MKDEV(SCSI_GENERIC_MAJOR, sdp->index));
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove(sdp->debugfs_sym);
+#endif
 	cdev_del(sdp->cdev);
 	sdp->cdev = NULL;
 
