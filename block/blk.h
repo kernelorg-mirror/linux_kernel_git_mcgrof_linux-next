@@ -489,8 +489,18 @@ int __bio_add_pc_page(struct request_queue *q, struct bio *bio,
 		bool *same_page);
 #ifdef CONFIG_DEBUG_FS
 void blk_debugfs_register(void);
+void blk_queue_debugfs_register(struct request_queue *q);
+void blk_queue_debugfs_unregister(struct request_queue *q);
 #else
 static inline void blk_debugfs_register(void)
+{
+}
+
+static inline void blk_queue_debugfs_register(struct request_queue *q)
+{
+}
+
+static inline void blk_queue_debugfs_unregister(struct request_queue *q)
 {
 }
 #endif /* CONFIG_DEBUG_FS */
