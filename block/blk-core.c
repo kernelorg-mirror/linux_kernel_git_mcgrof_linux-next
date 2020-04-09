@@ -301,6 +301,17 @@ void blk_clear_pm_only(struct request_queue *q)
 }
 EXPORT_SYMBOL_GPL(blk_clear_pm_only);
 
+/**
+ * blk_put_queue - decrement the request_queue refcount
+ *
+ * @q: the request_queue structure to decrement the refcount for
+ *
+ * Decrements the refcount to the request_queue kobject, when this reaches
+ * 0 we'll have blk_release_queue() called. You should avoid calling
+ * this function in atomic context but if you really have to ensure you
+ * first refcount the block device with bdgrab() / bdput() so that the
+ * last decrement happens in blk_cleanup_queue().
+ */
 void blk_put_queue(struct request_queue *q)
 {
 	kobject_put(&q->kobj);
@@ -328,13 +339,21 @@ EXPORT_SYMBOL_GPL(blk_set_queue_dying);
 
 /**
  * blk_cleanup_queue - shutdown a request queue
+ *
  * @q: request queue to shutdown
  *
  * Mark @q DYING, drain all pending requests, mark @q DEAD, destroy and
  * put it.  All future requests will be failed immediately with -ENODEV.
+ *
+ * You should not call this function in atomic context. If you need to
+ * refcount a request_queue in atomic context, instead refcount the
+ * block device with bdgrab() / bdput().
  */
 void blk_cleanup_queue(struct request_queue *q)
 {
+	/* cannot be called from atomic context */
+	might_sleep();
+
 	WARN_ON_ONCE(blk_queue_registered(q));
 
 	/* mark @q DYING, no new request or merges will be allowed afterwards */
