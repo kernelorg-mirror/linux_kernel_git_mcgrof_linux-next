@@ -701,6 +701,9 @@ int blk_trace_ioctl(struct block_device *bdev, unsigned cmd, char __user *arg)
 	if (!q)
 		return -ENXIO;
 
+	if (!blk_get_queue(q))
+		return -ENXIO;
+
 	mutex_lock(&q->blk_trace_mutex);
 
 	switch (cmd) {
@@ -729,6 +732,9 @@ int blk_trace_ioctl(struct block_device *bdev, unsigned cmd, char __user *arg)
 	}
 
 	mutex_unlock(&q->blk_trace_mutex);
+
+	blk_put_queue(q);
+
 	return ret;
 }
 
