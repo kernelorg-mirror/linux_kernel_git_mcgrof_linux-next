@@ -860,10 +860,9 @@ static void blk_exit_queue(struct request_queue *q)
 	bdi_put(q->backing_dev_info);
 }
 
-
 /**
- * __blk_release_queue - release a request queue
- * @work: pointer to the release_work member of the request queue to be released
+ * blk_release_queue_sync- release a request queue
+ * @q: pointer to the request queue to be released
  *
  * Description:
  *     This function is called when a block device is being unregistered. The
@@ -872,11 +871,27 @@ static void blk_exit_queue(struct request_queue *q)
  *     the reference counter of the request queue. Once the reference counter
  *     of the request queue reaches zero, blk_release_queue is called to release
  *     all allocated resources of the request queue.
+ *
+ *     There are two approaches to releasing the request queue, by default
+ *     we reserve the right to sleep on release and so release is synchronous.
+ *     If you know the path under which blk_cleanup_queue() or your last
+ *     blk_put_queue() is called can be called in atomic context you want to
+ *     ensure to defer the removal by setting the QUEUE_FLAG_DEFER_REMOVAL
+ *     flag as follows upon initialization:
+ *
+ *     blk_queue_flag_set(QUEUE_FLAG_DEFER_REMOVAL, q)
+ *
+ *     Note that deferring removal may have implications for userspace. An
+ *     example is if you are using an ioctl to allow removal of a block device,
+ *     and the kernel returns immediately even though the device may only
+ *     disappear after the full removal is completed.
+ *
+ *     You should also be able to work around this by just increasing the
+ *     refcount for the block device instead during your atomic operation,
+ *     and so QUEUE_FLAG_DEFER_REMOVAL should almost never be required.
  */
-static void __blk_release_queue(struct work_struct *work)
+static void blk_release_queue_sync(struct request_queue *q)
 {
-	struct request_queue *q = container_of(work, typeof(*q), release_work);
-
 	if (test_bit(QUEUE_FLAG_POLL_STATS, &q->queue_flags))
 		blk_stat_remove_callback(q, q->poll_cb);
 	blk_stat_free_callback(q->poll_cb);
@@ -905,13 +920,22 @@ static void __blk_release_queue(struct work_struct *work)
 	call_rcu(&q->rcu_head, blk_free_queue_rcu);
 }
 
+void __blk_release_queue(struct work_struct *work)
+{
+	struct request_queue *q = container_of(work, typeof(*q), release_work);
+
+	blk_release_queue_sync(q);
+}
+
 static void blk_release_queue(struct kobject *kobj)
 {
 	struct request_queue *q =
 		container_of(kobj, struct request_queue, kobj);
 
-	INIT_WORK(&q->release_work, __blk_release_queue);
-	schedule_work(&q->release_work);
+	if (blk_queue_defer_removal(q))
+		schedule_work(&q->release_work);
+	else
+		blk_release_queue_sync(q);
 }
 
 static const struct sysfs_ops queue_sysfs_ops = {
