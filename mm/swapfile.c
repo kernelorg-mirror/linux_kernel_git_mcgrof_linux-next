@@ -3753,6 +3753,7 @@ static void free_swap_count_continuations(struct swap_info_struct *si)
 void mem_cgroup_throttle_swaprate(struct mem_cgroup *memcg, int node,
 				  gfp_t gfp_mask)
 {
+	struct block_device *bdev;
 	struct swap_info_struct *si, *next;
 	if (!(gfp_mask & __GFP_IO) || !memcg)
 		return;
@@ -3771,8 +3772,17 @@ void mem_cgroup_throttle_swaprate(struct mem_cgroup *memcg, int node,
 	plist_for_each_entry_safe(si, next, &swap_avail_heads[node],
 				  avail_lists[node]) {
 		if (si->bdev) {
-			blkcg_schedule_throttle(bdev_get_queue(si->bdev),
-						true);
+			bdev = bdgrab(si->bdev);
+			if (!bdev)
+				continue;
+			/*
+			 * By adding our own bdgrab() we ensure the queue
+			 * sticks around until disk_release(), and so we ensure
+			 * our release of the request_queue does not happen in
+			 * atomic context.
+			 */
+			blkcg_schedule_throttle(bdev_get_queue(bdev), true);
+			bdput(bdev);
 			break;
 		}
 	}
