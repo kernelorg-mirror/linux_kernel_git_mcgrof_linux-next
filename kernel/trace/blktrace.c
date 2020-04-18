@@ -498,10 +498,7 @@ static struct dentry *blk_trace_debugfs_dir(struct blk_user_trace_setup *buts,
 	struct dentry *dir = NULL;
 
 	/* This can only happen if we have a bug on our lower layers */
-	if (!q->kobj.parent) {
-		pr_warn("%s: request_queue parent is gone\n", buts->name);
-		return NULL;
-	}
+	BUG_ON(!q->kobj.parent);
 
 	/*
 	 * From a sysfs kobject perspective, the request_queue sits on top of
@@ -510,32 +507,19 @@ static struct dentry *blk_trace_debugfs_dir(struct blk_user_trace_setup *buts,
 	 * that if blktrace is going to be done for it.
 	 */
 	if (blk_trace_target_disk(buts->name, kobject_name(q->kobj.parent))) {
-		if (!q->debugfs_dir) {
-			pr_warn("%s: expected request_queue debugfs_dir is not set\n",
-				buts->name);
-			return NULL;
-		}
+		BUG_ON(!q->debugfs_dir);
+
 		/*
 		 * debugfs_lookup() is used to ensure the directory is not
 		 * taken from underneath us. We must dput() it later once
 		 * done with it within blktrace.
+		 *
+		 * This is also a reaffirmation that debugfs_lookup() shall
+		 * always return the same dentry if it was already set.
 		 */
 		dir = debugfs_lookup(buts->name, blk_debugfs_root);
-		if (!dir) {
-			pr_warn("%s: expected request_queue debugfs_dir dentry is gone\n",
-				buts->name);
-			return NULL;
-		}
-		 /*
-		 * This is a reaffirmation that debugfs_lookup() shall always
-		 * return the same dentry if it was already set.
-		 */
-		if (dir != q->debugfs_dir) {
-			dput(dir);
-			pr_warn("%s: expected dentry dir != q->debugfs_dir\n",
-				buts->name);
-			return NULL;
-		}
+		BUG_ON(!dir || dir != q->debugfs_dir);
+
 		bt->backing_dir = q->debugfs_dir;
 		return bt->backing_dir;
 	}
