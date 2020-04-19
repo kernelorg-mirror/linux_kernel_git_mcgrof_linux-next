@@ -19,16 +19,8 @@ void blk_debugfs_register(void)
 
 int __must_check blk_queue_debugfs_register(struct request_queue *q)
 {
-	struct dentry *dir = NULL;
-
 	/* This can happen if we have a bug in the lower layers */
-	dir = debugfs_lookup(kobject_name(q->kobj.parent), blk_debugfs_root);
-	if (dir) {
-		pr_warn("%s: registering request_queue debugfs directory twice is not allowed\n",
-			kobject_name(q->kobj.parent));
-		dput(dir);
-		return -EALREADY;
-	}
+	BUG_ON(debugfs_lookup(kobject_name(q->kobj.parent), blk_debugfs_root));
 
 	q->debugfs_dir = debugfs_create_dir(kobject_name(q->kobj.parent),
 					    blk_debugfs_root);
