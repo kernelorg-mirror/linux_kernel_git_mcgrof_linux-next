@@ -552,17 +552,19 @@ static int blk_trace_create_debugfs_files(struct blk_user_trace_setup *buts,
 					  struct dentry *dir,
 					  struct blk_trace *bt)
 {
-	int ret = -EIO;
-
 	bt->dropped_file = debugfs_create_file("dropped", 0444, dir, bt,
 					       &blk_dropped_fops);
+	if (!bt->dropped_file)
+		return -ENOMEM;
 
 	bt->msg_file = debugfs_create_file("msg", 0222, dir, bt, &blk_msg_fops);
+	if (!bt->msg_file)
+		return -ENOMEM;
 
 	bt->rchan = relay_open("trace", dir, buts->buf_size,
 				buts->buf_nr, &blk_relay_callbacks, bt);
 	if (!bt->rchan)
-		return ret;
+		return -EIO;
 
 	return 0;
 }
