@@ -548,6 +548,25 @@ static struct dentry *blk_trace_debugfs_dir(struct blk_user_trace_setup *buts,
 	return bt->dir;
 }
 
+static int blk_trace_create_debugfs_files(struct blk_user_trace_setup *buts,
+					  struct dentry *dir,
+					  struct blk_trace *bt)
+{
+	int ret = -EIO;
+
+	bt->dropped_file = debugfs_create_file("dropped", 0444, dir, bt,
+					       &blk_dropped_fops);
+
+	bt->msg_file = debugfs_create_file("msg", 0222, dir, bt, &blk_msg_fops);
+
+	bt->rchan = relay_open("trace", dir, buts->buf_size,
+				buts->buf_nr, &blk_relay_callbacks, bt);
+	if (!bt->rchan)
+		return ret;
+
+	return 0;
+}
+
 /*
  * Setup everything required to start tracing
  */
@@ -597,15 +616,8 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 	atomic_set(&bt->dropped, 0);
 	INIT_LIST_HEAD(&bt->running_list);
 
-	ret = -EIO;
-	bt->dropped_file = debugfs_create_file("dropped", 0444, dir, bt,
-					       &blk_dropped_fops);
-
-	bt->msg_file = debugfs_create_file("msg", 0222, dir, bt, &blk_msg_fops);
-
-	bt->rchan = relay_open("trace", dir, buts->buf_size,
-				buts->buf_nr, &blk_relay_callbacks, bt);
-	if (!bt->rchan)
+	ret = blk_trace_create_debugfs_files(buts, dir, bt);
+	if (ret)
 		goto err;
 
 	bt->act_mask = buts->act_mask;
