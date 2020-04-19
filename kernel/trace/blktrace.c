@@ -468,6 +468,18 @@ static void blk_trace_setup_lba(struct blk_trace *bt,
 	}
 }
 
+static struct dentry *blk_trace_debugfs_dir(struct blk_user_trace_setup *buts,
+					    struct blk_trace *bt)
+{
+	struct dentry *dir = NULL;
+
+	dir = debugfs_lookup(buts->name, blk_debugfs_root);
+	if (!dir)
+		bt->dir = dir = debugfs_create_dir(buts->name, blk_debugfs_root);
+
+	return dir;
+}
+
 /*
  * Setup everything required to start tracing
  */
@@ -509,9 +521,7 @@ static int do_blk_trace_setup(struct request_queue *q, char *name, dev_t dev,
 
 	ret = -ENOENT;
 
-	dir = debugfs_lookup(buts->name, blk_debugfs_root);
-	if (!dir)
-		bt->dir = dir = debugfs_create_dir(buts->name, blk_debugfs_root);
+	dir = blk_trace_debugfs_dir(buts, bt);
 
 	bt->dev = dev;
 	atomic_set(&bt->dropped, 0);
