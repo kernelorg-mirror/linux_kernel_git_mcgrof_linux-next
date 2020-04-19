@@ -15,6 +15,8 @@ struct dentry *blk_debugfs_root;
 void blk_debugfs_register(void)
 {
 	blk_debugfs_root = debugfs_create_dir("block", NULL);
+	if (!blk_debugfs_root)
+		panic("Failed to create block debugfs directory\n");
 }
 
 int __must_check blk_queue_debugfs_register(struct request_queue *q)
