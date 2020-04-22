@@ -939,9 +939,10 @@ int blk_register_queue(struct gendisk *disk)
 	if (WARN_ON(!q))
 		return -ENXIO;
 
-	WARN_ONCE(blk_queue_registered(q),
-		  "%s is registering an already registered queue\n",
-		  kobject_name(&dev->kobj));
+	if (WARN_ONCE(blk_queue_registered(q),
+		      "%s is registering an already registered queue\n",
+		      kobject_name(&dev->kobj)))
+		return -ENXIO;
 
 	/*
 	 * SCSI probing may synchronously create and destroy a lot of
