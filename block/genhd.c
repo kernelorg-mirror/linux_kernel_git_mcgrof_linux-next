@@ -762,6 +762,28 @@ static void disk_invalidate(struct gendisk *disk)
 	up_write(&disk->lookup_sem);
 }
 
+static void unregister_disk(struct gendisk *disk)
+{
+	/*
+	 * Remove gendisk pointer from idr so that it cannot be looked up
+	 * while RCU period before freeing gendisk is running to prevent
+	 * use-after-free issues. Note that the device number stays
+	 * "in-use" until we really free the gendisk.
+	 */
+	blk_invalidate_devt(disk_devt(disk));
+
+	kobject_put(disk->part0.holder_dir);
+	kobject_put(disk->slave_dir);
+
+	part_stat_set_all(&disk->part0, 0);
+	disk->part0.stamp = 0;
+	if (!sysfs_deprecated)
+		sysfs_remove_link(block_depr, dev_name(disk_to_dev(disk)));
+
+	pm_runtime_set_memalloc_noio(disk_to_dev(disk), false);
+	device_del(disk_to_dev(disk));
+}
+
 static void register_disk(struct device *parent, struct gendisk *disk,
 			  const struct attribute_group **groups)
 {
@@ -972,25 +994,10 @@ void del_gendisk(struct gendisk *disk)
 		WARN_ON(1);
 	}
 
+	unregister_disk(disk);
+
 	if (!(disk->flags & GENHD_FL_HIDDEN))
 		blk_unregister_region(disk_devt(disk), disk->minors);
-	/*
-	 * Remove gendisk pointer from idr so that it cannot be looked up
-	 * while RCU period before freeing gendisk is running to prevent
-	 * use-after-free issues. Note that the device number stays
-	 * "in-use" until we really free the gendisk.
-	 */
-	blk_invalidate_devt(disk_devt(disk));
-
-	kobject_put(disk->part0.holder_dir);
-	kobject_put(disk->slave_dir);
-
-	part_stat_set_all(&disk->part0, 0);
-	disk->part0.stamp = 0;
-	if (!sysfs_deprecated)
-		sysfs_remove_link(block_depr, dev_name(disk_to_dev(disk)));
-	pm_runtime_set_memalloc_noio(disk_to_dev(disk), false);
-	device_del(disk_to_dev(disk));
 }
 EXPORT_SYMBOL(del_gendisk);
 
