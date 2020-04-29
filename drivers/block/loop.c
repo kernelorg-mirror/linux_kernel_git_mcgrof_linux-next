@@ -2096,10 +2096,15 @@ static int loop_add(struct loop_device **l, int i)
 	disk->private_data	= lo;
 	disk->queue		= lo->lo_queue;
 	sprintf(disk->disk_name, "loop%d", i);
-	add_disk(disk);
+	err = add_disk(disk);
+	if (err)
+		goto out_put_disk;
+
 	*l = lo;
 	return lo->lo_number;
 
+out_put_disk:
+	put_disk(lo->lo_disk);
 out_free_queue:
 	blk_cleanup_queue(lo->lo_queue);
 out_cleanup_tags:
