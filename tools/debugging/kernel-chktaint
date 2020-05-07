@@ -194,6 +194,13 @@ else
 	addout "T"
 	echo " * kernel was built with the struct randomization plugin (#17)"
 fi
+T=`expr $T / 2`
+if [ `expr $T % 2` -eq 0 ]; then
+	addout " "
+else
+	addout "Q"
+	echo " * a device driver's firmware has crashed (#18)"
+fi
 
 echo "For a more detailed explanation of the various taint flags see"
 echo " Documentation/admin-guide/tainted-kernels.rst in the the Linux kernel sources"
