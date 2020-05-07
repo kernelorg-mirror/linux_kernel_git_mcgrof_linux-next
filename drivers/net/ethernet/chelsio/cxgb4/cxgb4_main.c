@@ -3646,6 +3646,7 @@ void t4_fatal_err(struct adapter *adap)
 	 * could be exposed to the adapter.  RDMA MWs for example...
 	 */
 	t4_shutdown_adapter(adap);
+	module_firmware_crashed();
 	for_each_port(adap, port) {
 		struct net_device *dev = adap->port[port];
 
