@@ -3503,6 +3503,7 @@ static int bnxt_get_dump_data(struct net_device *dev, struct ethtool_dump *dump,
 
 	dump->flag = bp->dump_flag;
 	if (dump->flag == BNXT_DUMP_CRASH) {
+		module_firmware_crashed();
 #ifdef CONFIG_TEE_BNXT_FW
 		return tee_bnxt_copy_coredump(buf, 0, dump->len);
 #endif
