@@ -3285,6 +3285,8 @@ static void ehea_crash_handler(void)
 {
 	int i;
 
+	module_firmware_crashed();
+
 	if (ehea_fw_handles.arr)
 		for (i = 0; i < ehea_fw_handles.num_entries; i++)
 			ehea_h_free_resource(ehea_fw_handles.arr[i].adh,
