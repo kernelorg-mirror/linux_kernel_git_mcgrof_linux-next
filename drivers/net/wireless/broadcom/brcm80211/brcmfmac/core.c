@@ -1393,6 +1393,7 @@ void brcmf_fw_crashed(struct device *dev)
 	struct brcmf_pub *drvr = bus_if->drvr;
 
 	bphy_err(drvr, "Firmware has halted or crashed\n");
+	module_firmware_crashed();
 
 	brcmf_dev_coredump(dev);
 
