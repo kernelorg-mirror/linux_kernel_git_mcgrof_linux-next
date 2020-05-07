@@ -1551,6 +1551,7 @@ static int mwl8k_tx_wait_empty(struct ieee80211_hw *hw)
 	 * the firmware has crashed
 	 */
 	if (priv->hw_restart_in_progress) {
+		module_firmware_crashed();
 		if (priv->hw_restart_owner == current)
 			return 0;
 		else
