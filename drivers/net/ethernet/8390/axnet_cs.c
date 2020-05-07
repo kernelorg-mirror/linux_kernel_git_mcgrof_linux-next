@@ -1358,9 +1358,11 @@ static void ei_receive(struct net_device *dev)
 		 */
 		if ((netif_msg_rx_err(ei_local)) &&
 		    this_frame != ei_local->current_page &&
-		    (this_frame != 0x0 || rxing_page != 0xFF))
+		    (this_frame != 0x0 || rxing_page != 0xFF)) {
+			module_firmware_crashed();
 			netdev_err(dev, "mismatched read page pointers %2x vs %2x\n",
 				   this_frame, ei_local->current_page);
+		}
 		
 		if (this_frame == rxing_page)	/* Read all the frames? */
 			break;				/* Done for now */
