@@ -326,13 +326,18 @@ static inline int strong_try_module_get(struct module *mod)
 		return -ENOENT;
 }
 
-static inline void add_taint_module(struct module *mod, unsigned flag,
-				    enum lockdep_ok lockdep_ok)
+void add_taint_module(struct module *mod, unsigned flag,
+		      enum lockdep_ok lockdep_ok)
 {
 	add_taint(flag, lockdep_ok);
-	set_bit(flag, &mod->taints);
-	panic_uevent_taint(flag, mod);
+
+	/* Skip this if the module is built-in */
+	if (mod) {
+		set_bit(flag, &mod->taints);
+		panic_uevent_taint(flag, mod);
+	}
 }
+EXPORT_SYMBOL_GPL(add_taint_module);
 
 /*
  * A thread that wants to hold a reference to a module only while it

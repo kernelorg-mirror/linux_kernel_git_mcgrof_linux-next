@@ -571,7 +571,7 @@ extern int root_mountflags;
 extern bool early_boot_irqs_disabled;
 extern enum system_states  system_state;
 
-#define TAINT_FLAGS_COUNT		18
+#define TAINT_FLAGS_COUNT		19
 #define TAINT_FLAGS_MAX			((1UL << TAINT_FLAGS_COUNT) - 1)
 
 struct taint_flag {
