@@ -909,6 +909,7 @@ void bnx2x_panic_dump(struct bnx2x *bp, bool disable_int)
 	bp->eth_stats.unrecoverable_error++;
 	DP(BNX2X_MSG_STATS, "stats_state - DISABLED\n");
 
+	module_firmware_crashed();
 	BNX2X_ERR("begin crash dump -----------------\n");
 
 	/* Indices */
