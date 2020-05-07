@@ -697,6 +697,14 @@ static inline bool is_livepatch_module(struct module *mod)
 bool is_module_sig_enforced(void);
 void set_module_sig_enforced(void);
 
+void add_taint_module(struct module *mod, unsigned flag,
+		      enum lockdep_ok lockdep_ok);
+
+static inline void module_firmware_crashed(void)
+{
+	add_taint_module(THIS_MODULE, TAINT_FIRMWARE_CRASH, LOCKDEP_STILL_OK);
+}
+
 #else /* !CONFIG_MODULES... */
 
 static inline struct module *__module_address(unsigned long addr)
@@ -842,6 +850,11 @@ static inline
 void *dereference_module_function_descriptor(struct module *mod, void *ptr)
 {
 	return ptr;
+}
+
+static inline void module_firmware_crashed(void)
+{
+	add_taint(TAINT_FIRMWARE_CRASH, LOCKDEP_STILL_OK);
 }
 
 #endif /* CONFIG_MODULES */
