@@ -45,6 +45,7 @@ enum system_states {
 #define TAINT_LIVEPATCH			15
 #define TAINT_AUX			16
 #define TAINT_RANDSTRUCT		17
+#define TAINT_FIRMWARE_CRASH		18
 /* be sure to update TAINT_FLAGS_COUNT when extending this */
 
 #endif /* _UAPI_LINUX_KERNEL_H */
