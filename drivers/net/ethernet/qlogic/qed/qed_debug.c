@@ -7854,6 +7854,7 @@ int qed_dbg_all_data(struct qed_dev *cdev, void *buffer)
 						 REGDUMP_HEADER_SIZE,
 						 &feature_size);
 		if (!rc) {
+			module_firmware_crashed();
 			*(u32 *)((u8 *)buffer + offset) =
 			    qed_calc_regdump_header(cdev, PROTECTION_OVERRIDE,
 						    cur_engine,
@@ -7869,6 +7870,7 @@ int qed_dbg_all_data(struct qed_dev *cdev, void *buffer)
 		rc = qed_dbg_fw_asserts(cdev, (u8 *)buffer + offset +
 					REGDUMP_HEADER_SIZE, &feature_size);
 		if (!rc) {
+			module_firmware_crashed();
 			*(u32 *)((u8 *)buffer + offset) =
 			    qed_calc_regdump_header(cdev, FW_ASSERTS,
 						    cur_engine, feature_size,
@@ -7906,6 +7908,7 @@ int qed_dbg_all_data(struct qed_dev *cdev, void *buffer)
 		rc = qed_dbg_grc(cdev, (u8 *)buffer + offset +
 				 REGDUMP_HEADER_SIZE, &feature_size);
 		if (!rc) {
+			module_firmware_crashed();
 			*(u32 *)((u8 *)buffer + offset) =
 			    qed_calc_regdump_header(cdev, GRC_DUMP,
 						    cur_engine,
