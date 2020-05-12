@@ -59,6 +59,8 @@
 #include <uapi/linux/module.h>
 #include "module-internal.h"
 
+MODULE_IMPORT_NS(SECURITY_READ);
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>
 

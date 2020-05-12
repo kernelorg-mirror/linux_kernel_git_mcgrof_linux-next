@@ -19,6 +19,8 @@
 
 #include "kexec_internal.h"
 
+MODULE_IMPORT_NS(SECURITY_READ);
+
 static int copy_user_segment_list(struct kimage *image,
 				  unsigned long nr_segments,
 				  struct kexec_segment __user *segments)

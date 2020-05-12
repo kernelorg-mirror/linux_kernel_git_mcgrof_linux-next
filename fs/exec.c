@@ -72,6 +72,8 @@
 
 #include <trace/events/sched.h>
 
+MODULE_IMPORT_NS(SECURITY_READ);
+
 int suid_dumpable = 0;
 
 static LIST_HEAD(formats);

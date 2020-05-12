@@ -19,6 +19,7 @@
  */
 
 MODULE_IMPORT_NS(FIRMWARE_LOADER_PRIVATE);
+MODULE_IMPORT_NS(SECURITY_READ);
 
 extern struct firmware_fallback_config fw_fallback_config;
 

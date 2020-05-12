@@ -1654,7 +1654,7 @@ int security_kernel_read_file(struct file *file, enum kernel_read_file_id id)
 		return ret;
 	return ima_read_file(file, id);
 }
-EXPORT_SYMBOL_GPL(security_kernel_read_file);
+EXPORT_SYMBOL_NS_GPL(security_kernel_read_file, SECURITY_READ);
 
 int security_kernel_post_read_file(struct file *file, char *buf, loff_t size,
 				   enum kernel_read_file_id id)
@@ -1666,7 +1666,7 @@ int security_kernel_post_read_file(struct file *file, char *buf, loff_t size,
 		return ret;
 	return ima_post_read_file(file, buf, size, id);
 }
-EXPORT_SYMBOL_GPL(security_kernel_post_read_file);
+EXPORT_SYMBOL_NS_GPL(security_kernel_post_read_file, SECURITY_READ);
 
 int security_kernel_load_data(enum kernel_load_data_id id)
 {
@@ -1677,7 +1677,7 @@ int security_kernel_load_data(enum kernel_load_data_id id)
 		return ret;
 	return ima_load_data(id);
 }
-EXPORT_SYMBOL_GPL(security_kernel_load_data);
+EXPORT_SYMBOL_NS_GPL(security_kernel_load_data, SECURITY_READ);
 
 int security_task_fix_setuid(struct cred *new, const struct cred *old,
 			     int flags)
