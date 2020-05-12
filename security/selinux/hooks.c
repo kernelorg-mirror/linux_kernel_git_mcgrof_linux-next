@@ -103,6 +103,8 @@
 #include "audit.h"
 #include "avc_ss.h"
 
+MODULE_IMPORT_NS(CORE_FS_READ);
+
 struct selinux_state selinux_state;
 
 /* SECMARK reference count */

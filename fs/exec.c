@@ -1008,7 +1008,7 @@ int kernel_read_file_from_path(const char *path, void **buf, loff_t *size,
 	fput(file);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(kernel_read_file_from_path);
+EXPORT_SYMBOL_NS_GPL(kernel_read_file_from_path, CORE_FS_READ);
 
 int kernel_read_file_from_path_initns(const char *path, void **buf,
 				      loff_t *size, loff_t max_size,
@@ -1034,7 +1034,7 @@ int kernel_read_file_from_path_initns(const char *path, void **buf,
 	fput(file);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(kernel_read_file_from_path_initns);
+EXPORT_SYMBOL_NS_GPL(kernel_read_file_from_path_initns, CORE_FS_READ);
 
 int kernel_read_file_from_fd(int fd, void **buf, loff_t *size, loff_t max_size,
 			     enum kernel_read_file_id id)
@@ -1050,7 +1050,7 @@ out:
 	fdput(f);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(kernel_read_file_from_fd);
+EXPORT_SYMBOL_NS_GPL(kernel_read_file_from_fd, CORE_FS_READ);
 
 ssize_t read_code(struct file *file, unsigned long addr, loff_t pos, size_t len)
 {

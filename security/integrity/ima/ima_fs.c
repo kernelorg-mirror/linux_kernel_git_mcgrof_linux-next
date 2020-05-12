@@ -20,6 +20,9 @@
 #include <linux/rcupdate.h>
 #include <linux/parser.h>
 #include <linux/vmalloc.h>
+#include <linux/module.h>
+
+MODULE_IMPORT_NS(CORE_FS_READ);
 
 #include "ima.h"
 

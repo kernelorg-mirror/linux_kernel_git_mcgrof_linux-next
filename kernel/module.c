@@ -60,6 +60,7 @@
 #include "module-internal.h"
 
 MODULE_IMPORT_NS(SECURITY_READ);
+MODULE_IMPORT_NS(CORE_FS_READ);
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/module.h>

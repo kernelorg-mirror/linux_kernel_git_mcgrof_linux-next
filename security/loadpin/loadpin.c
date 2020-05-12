@@ -17,6 +17,8 @@
 #include <linux/sched.h>	/* current */
 #include <linux/string_helpers.h>
 
+MODULE_IMPORT_NS(CORE_FS_READ);
+
 static void report_load(const char *origin, struct file *file, char *operation)
 {
 	char *cmdline, *pathname;

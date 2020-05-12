@@ -44,6 +44,7 @@
 MODULE_AUTHOR("Manuel Estrada Sainz");
 MODULE_DESCRIPTION("Multi purpose firmware loading support");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(CORE_FS_READ);
 
 struct firmware_cache {
 	/* firmware_buf instance will be added into the below list */

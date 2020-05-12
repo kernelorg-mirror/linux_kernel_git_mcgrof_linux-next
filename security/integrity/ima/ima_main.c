@@ -28,6 +28,8 @@
 
 #include "ima.h"
 
+MODULE_IMPORT_NS(CORE_FS_READ);
+
 #ifdef CONFIG_IMA_APPRAISE
 int ima_appraise = IMA_APPRAISE_ENFORCE;
 #else

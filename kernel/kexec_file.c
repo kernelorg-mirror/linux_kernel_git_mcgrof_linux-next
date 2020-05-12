@@ -28,6 +28,8 @@
 #include <linux/vmalloc.h>
 #include "kexec_internal.h"
 
+MODULE_IMPORT_NS(CORE_FS_READ);
+
 static int kexec_calculate_store_digests(struct kimage *image);
 
 /*

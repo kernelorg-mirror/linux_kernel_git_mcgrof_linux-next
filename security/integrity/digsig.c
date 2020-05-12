@@ -13,10 +13,13 @@
 #include <linux/key-type.h>
 #include <linux/digsig.h>
 #include <linux/vmalloc.h>
+#include <linux/module.h>
 #include <crypto/public_key.h>
 #include <keys/system_keyring.h>
 
 #include "integrity.h"
+
+MODULE_IMPORT_NS(CORE_FS_READ);
 
 static struct key *keyring[INTEGRITY_KEYRING_MAX];
 

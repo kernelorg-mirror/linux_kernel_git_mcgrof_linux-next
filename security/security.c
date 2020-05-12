@@ -29,6 +29,8 @@
 #include <linux/msg.h>
 #include <net/flow.h>
 
+MODULE_IMPORT_NS(CORE_FS_READ);
+
 #define MAX_LSM_EVM_XATTR	2
 
 /* How many LSMs were built into the kernel? */
