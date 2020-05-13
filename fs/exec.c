@@ -988,7 +988,6 @@ out:
 	allow_write_access(file);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(kernel_read_file);
 
 int kernel_read_file_from_path(const char *path, void **buf, loff_t *size,
 			       loff_t max_size, enum kernel_read_file_id id)
