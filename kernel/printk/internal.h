@@ -35,6 +35,11 @@ bool printk_percpu_data_ready(void);
 	} while (0)
 
 void defer_console_output(void);
+#ifdef CONFIG_SYSCTL
+void __init printk_sysctl_init(void);
+#else
+#define printk_sysctl_init() do { } while (0)
+#endif
 
 u16 printk_parse_prefix(const char *text, int *level,
 			enum printk_info_flags *flags);
