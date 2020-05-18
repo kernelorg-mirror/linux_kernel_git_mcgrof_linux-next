@@ -120,7 +120,7 @@ static const unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
 
 /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
 static const int maxolduid = 65535;
-static const int minolduid;
+/* minolduid is SYSCTL_ZERO */
 
 static int ngroups_max = NGROUPS_MAX;
 static const int cap_last_cap = CAP_LAST_CAP;
@@ -167,7 +167,7 @@ int sysctl_legacy_va_layout;
 #ifdef CONFIG_SCHED_DEBUG
 static const int min_sched_granularity_ns = 100000;		/* 100 usecs */
 static const int max_sched_granularity_ns = NSEC_PER_SEC;	/* 1 second */
-static const int min_wakeup_granularity_ns;			/* 0 usecs */
+/* min_wakeup_granularity_ns is SYSCTL_ZERO, 0 usecs */
 static const int max_wakeup_granularity_ns = NSEC_PER_SEC;	/* 1 second */
 #ifdef CONFIG_SMP
 static const int min_sched_tunable_scaling = SCHED_TUNABLESCALING_NONE;
@@ -176,7 +176,7 @@ static const int max_sched_tunable_scaling = SCHED_TUNABLESCALING_END - 1;
 #endif /* CONFIG_SCHED_DEBUG */
 
 #ifdef CONFIG_COMPACTION
-static const int min_extfrag_threshold;
+/* min_extfrag_threshold is SYSCTL_ZERO */;
 static const int max_extfrag_threshold = 1000;
 #endif
 
@@ -1664,7 +1664,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
 		.proc_handler	= sched_proc_update_handler,
-		.extra1		= (void *)&min_wakeup_granularity_ns,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= (void *)&max_wakeup_granularity_ns,
 	},
 #ifdef CONFIG_SMP
@@ -2107,7 +2107,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= (void *)&minolduid,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= (void *)&maxolduid,
 	},
 	{
@@ -2116,7 +2116,7 @@ static struct ctl_table kern_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= (void *)&minolduid,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= (void *)&maxolduid,
 	},
 #ifdef CONFIG_S390
@@ -2671,7 +2671,7 @@ static struct ctl_table vm_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= (void *)&min_extfrag_threshold,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= (void *)&max_extfrag_threshold,
 	},
 	{
@@ -2983,7 +2983,7 @@ static struct ctl_table fs_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= (void *)&minolduid,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= (void *)&maxolduid,
 	},
 	{
@@ -2992,7 +2992,7 @@ static struct ctl_table fs_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
-		.extra1		= (void *)&minolduid,
+		.extra1		= SYSCTL_ZERO,
 		.extra2		= (void *)&maxolduid,
 	},
 #ifdef CONFIG_FILE_LOCKING
