@@ -30,6 +30,7 @@
 #include <linux/console.h>
 #include <linux/bug.h>
 #include <linux/ratelimit.h>
+#include <linux/panic_events.h>
 #include <linux/debugfs.h>
 #include <asm/sections.h>
 
@@ -441,8 +442,10 @@ unsigned long get_taint(void)
  */
 void add_taint(unsigned flag, enum lockdep_ok lockdep_ok)
 {
-	if (lockdep_ok == LOCKDEP_NOW_UNRELIABLE && __debug_locks_off())
+	if (lockdep_ok == LOCKDEP_NOW_UNRELIABLE && __debug_locks_off()) {
 		pr_warn("Disabling lock debugging due to kernel taint\n");
+		panic_uevent(PANIC_LOCKDEP_DISABLED);
+	}
 
 	set_bit(flag, &tainted_mask);
 
@@ -450,6 +453,8 @@ void add_taint(unsigned flag, enum lockdep_ok lockdep_ok)
 		panic_on_taint = 0;
 		panic("panic_on_taint set ...");
 	}
+
+	panic_uevent_taint(flag, NULL);
 }
 EXPORT_SYMBOL(add_taint);
 

@@ -95,6 +95,7 @@
 #include <linux/jump_label.h>
 #include <linux/mem_encrypt.h>
 #include <linux/kcsan.h>
+#include <linux/panic_events.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -1301,6 +1302,7 @@ static void __init do_basic_setup(void)
 {
 	cpuset_init_smp();
 	driver_init();
+	panic_events_init();
 	init_irq_proc();
 	do_ctors();
 	usermodehelper_enable();

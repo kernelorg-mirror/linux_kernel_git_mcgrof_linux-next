@@ -710,7 +710,7 @@ void add_taint_module(struct module *mod, unsigned flag,
 
 static inline void taint_firmware_crashed(void)
 {
-	add_taint_module(TAINT_FIRMWARE_CRASH, LOCKDEP_STILL_OK);
+	add_taint_module(THIS_MODULE, TAINT_FIRMWARE_CRASH, LOCKDEP_STILL_OK);
 }
 
 #else /* !CONFIG_MODULES... */
