@@ -56,6 +56,7 @@
 #include <linux/bsearch.h>
 #include <linux/dynamic_debug.h>
 #include <linux/audit.h>
+#include <linux/panic_events.h>
 #include <uapi/linux/module.h>
 #include "module-internal.h"
 
@@ -330,6 +331,7 @@ static inline void add_taint_module(struct module *mod, unsigned flag,
 {
 	add_taint(flag, lockdep_ok);
 	set_bit(flag, &mod->taints);
+	panic_uevent_taint(flag, mod);
 }
 
 /*
