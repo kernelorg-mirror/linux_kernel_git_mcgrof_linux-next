@@ -835,6 +835,19 @@ config DEBUG_SHIRQ
 
 menu "Debug Oops, Lockups and Hangs"
 
+config PANIC_EVENTS
+	bool "Enable uevents relating to panics or taints"
+	help
+	  Say Y here to enable the kernel to send uevents relating to panics or
+	  when taint events happen. This may be useful if you want to craft some
+	  userspace component to analyze a taint, or inform the user of this
+	  event. These events are useful later in boot, prior to device driver
+	  initialization, so it won't capture events early in boot. The events
+	  are also best effort, if the system is low on memory some uevents
+	  not reach userspace.
+
+	  Say N if unsure.
+
 config PANIC_ON_OOPS
 	bool "Panic on Oops"
 	help

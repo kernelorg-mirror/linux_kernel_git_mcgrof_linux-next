@@ -96,6 +96,7 @@
 #include <linux/jump_label.h>
 #include <linux/mem_encrypt.h>
 #include <linux/kcsan.h>
+#include <linux/panic_events.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
