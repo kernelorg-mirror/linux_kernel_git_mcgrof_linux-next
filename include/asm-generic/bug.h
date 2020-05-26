@@ -80,7 +80,7 @@ struct bug_entry {
  */
 #ifndef __WARN_FLAGS
 extern __printf(4, 5)
-void warn_slowpath_fmt(const char *file, const int line, unsigned taint,
+void warn_slowpath_fmt(const char *file, const int line, unsigned int taint,
 		       const char *fmt, ...);
 #define __WARN()		__WARN_printf(TAINT_WARN, NULL)
 #define __WARN_printf(taint, arg...) do {				\
@@ -110,7 +110,7 @@ extern __printf(1, 2) void __warn_printk(const char *fmt, ...);
 struct warn_args;
 struct pt_regs;
 
-void __warn(const char *file, int line, void *caller, unsigned taint,
+void __warn(const char *file, int line, void *caller, unsigned int taint,
 	    struct pt_regs *regs, struct warn_args *args);
 
 #ifndef WARN_ON
