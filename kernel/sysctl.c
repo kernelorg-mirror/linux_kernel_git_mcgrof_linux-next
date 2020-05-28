@@ -107,11 +107,7 @@ static const int six_hundred_forty_kb = 640 * 1024;
 /* this is needed for the proc_doulongvec_minmax of vm_dirty_bytes */
 static const unsigned long dirty_bytes_min = 2 * PAGE_SIZE;
 
-/* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
-static const int maxolduid = 65535;
-/* minolduid is SYSCTL_ZERO */
-
-static int ngroups_max = NGROUPS_MAX;
+static const int ngroups_max = NGROUPS_MAX;
 static const int cap_last_cap = CAP_LAST_CAP;
 
 #ifdef CONFIG_PROC_SYSCTL
@@ -2061,7 +2057,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= (void *)&maxolduid,
+		.extra2		= SYSCTL_MAXOLDUID,
 	},
 	{
 		.procname	= "overflowgid",
@@ -2070,7 +2066,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= (void *)&maxolduid,
+		.extra2		= SYSCTL_MAXOLDUID,
 	},
 #ifdef CONFIG_S390
 	{
@@ -2823,7 +2819,7 @@ static struct ctl_table fs_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= (void *)&maxolduid,
+		.extra2		= SYSCTL_MAXOLDUID,
 	},
 	{
 		.procname	= "overflowgid",
@@ -2832,7 +2828,7 @@ static struct ctl_table fs_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 		.extra1		= SYSCTL_ZERO,
-		.extra2		= (void *)&maxolduid,
+		.extra2		= SYSCTL_MAXOLDUID,
 	},
 #ifdef CONFIG_FILE_LOCKING
 	{
