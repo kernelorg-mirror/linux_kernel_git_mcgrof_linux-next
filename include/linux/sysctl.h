@@ -205,6 +205,9 @@ void unregister_sysctl_table(struct ctl_table_header * table);
 extern int sysctl_init(void);
 extern void register_sysctl_init(const char *path, struct ctl_table *table,
 				 const char *table_name);
+extern struct ctl_table_header *register_sysctl_subdir(const char *base,
+						       const char *subdir,
+						       struct ctl_table *table);
 void do_sysctl_args(void);
 
 extern int pwrsw_enabled;
@@ -219,6 +222,14 @@ extern struct ctl_table epoll_table[];
 
 #else /* CONFIG_SYSCTL */
 static inline struct ctl_table_header *register_sysctl_table(struct ctl_table * table)
+{
+	return NULL;
+}
+
+static
+inline struct ctl_table_header *register_sysctl_subdir(const char *base,
+						       const char *subdir,
+						       struct ctl_table *table)
 {
 	return NULL;
 }

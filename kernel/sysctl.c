@@ -3195,6 +3195,43 @@ void __init register_sysctl_init(const char *path, struct ctl_table *table,
 	}
 	kmemleak_not_leak(hdr);
 }
+
+struct ctl_table_header *register_sysctl_subdir(const char *base,
+						const char *subdir,
+						struct ctl_table *table)
+{
+	struct ctl_table_header *hdr = NULL;
+	struct ctl_table subdir_table[] = {
+		{
+			.procname	= subdir,
+			.mode		= 0555,
+			.child		= table,
+		},
+		{ }
+	};
+	struct ctl_table base_table[] = {
+		{
+			.procname	= base,
+			.mode		= 0555,
+			.child		= subdir_table,
+		},
+		{ }
+	};
+
+	if (!table->procname)
+		goto out;
+
+	hdr = register_sysctl_table(base_table);
+	if (unlikely(!hdr)) {
+		pr_err("failed when creating subdirectory sysctl %s/%s/%s\n",
+		       base, subdir, table->procname);
+		goto out;
+	}
+	kmemleak_not_leak(hdr);
+out:
+	return hdr;
+}
+EXPORT_SYMBOL_GPL(register_sysctl_subdir);
 #endif /* CONFIG_SYSCTL */
 /*
  * No sense putting this after each symbol definition, twice,
