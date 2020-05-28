@@ -822,7 +822,8 @@ static int __init init_misc_binfmt(void)
 	int err = register_filesystem(&bm_fs_type);
 	if (!err)
 		insert_binfmt(&misc_format);
-	return err;
+	if (!register_sysctl_mount_point("fs/binfmt_misc"))
+		panic();
 }
 
 static void __exit exit_misc_binfmt(void)
