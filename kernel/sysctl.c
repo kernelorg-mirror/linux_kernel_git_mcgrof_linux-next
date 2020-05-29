@@ -3322,6 +3322,16 @@ void __init register_sysctl_init(const char *path, struct ctl_table *table,
 	}
 	kmemleak_not_leak(hdr);
 }
+
+/*
+ * Used to create permanently empty directories to serve as mount points.
+ * There are some subtle but important permission checks this allows in the
+ * case of unprivileged mounts.
+ */
+struct sysctl_header *register_sysctl_mount_point(const char *path)
+{
+	return register_sysctl(path, sysctl_mount_point);
+}
 #endif /* CONFIG_SYSCTL */
 /*
  * No sense putting this after each symbol definition, twice,
