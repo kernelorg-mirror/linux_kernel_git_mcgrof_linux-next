@@ -3188,13 +3188,17 @@ struct ctl_table_header *register_sysctl_subdir(const char *base,
 		{ }
 	};
 
-	if (!table->procname)
+	if (table != sysctl_mount_point && !table->procname)
 		goto out;
 
 	hdr = register_sysctl_table(base_table);
 	if (unlikely(!hdr)) {
-		pr_err("failed when creating subdirectory sysctl %s/%s/%s\n",
-		       base, subdir, table->procname);
+		if (table != sysctl_mount_point)
+			pr_err("failed when creating subdirectory sysctl %s/%s/%s\n",
+			       base, subdir, table->procname);
+		else
+			pr_err("failed when creating empty subddirectory %s/%s\n",
+			       base, subdir);
 		goto out;
 	}
 	kmemleak_not_leak(hdr);
@@ -3202,6 +3206,12 @@ out:
 	return hdr;
 }
 EXPORT_SYMBOL_GPL(register_sysctl_subdir);
+
+void register_sysctl_empty_subdir(const char *base,
+				  const char *subdir)
+{
+	register_sysctl_subdir(base, subdir, sysctl_mount_point);
+}
 #endif /* CONFIG_SYSCTL */
 /*
  * No sense putting this after each symbol definition, twice,

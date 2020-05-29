@@ -208,6 +208,8 @@ extern void register_sysctl_init(const char *path, struct ctl_table *table,
 extern struct ctl_table_header *register_sysctl_subdir(const char *base,
 						       const char *subdir,
 						       struct ctl_table *table);
+extern void register_sysctl_empty_subdir(const char *base, const char *subdir);
+
 void do_sysctl_args(void);
 
 extern int pwrsw_enabled;
@@ -229,6 +231,11 @@ inline struct ctl_table_header *register_sysctl_subdir(const char *base,
 						       struct ctl_table *table)
 {
 	return NULL;
+}
+
+static inline void register_sysctl_empty_subdir(const char *base,
+						const char *subdir)
+{
 }
 
 static inline struct ctl_table_header *register_sysctl_paths(
