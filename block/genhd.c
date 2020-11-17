@@ -438,6 +438,31 @@ static void disk_announce(struct gendisk *disk)
 	disk_uevent(disk, KOBJ_ADD);
 }
 
+static void unregister_disk_partitions(struct gendisk *disk)
+{
+	/*
+	 * Block lookups of the disk until all bdevs are unhashed and the
+	 * disk is marked as dead (GENHD_FL_UP cleared).
+	 */
+	down_write(&bdev_lookup_sem);
+
+	mutex_lock(&disk->part0->bd_mutex);
+	blk_drop_partitions(disk);
+	mutex_unlock(&disk->part0->bd_mutex);
+	fsync_bdev(disk->part0);
+	__invalidate_device(disk->part0, true);
+
+	/*
+	 * Unhash the bdev inode for this device so that it can't be looked
+	 * up any more even if openers still hold references to it.
+	 */
+	remove_inode_hash(disk->part0->bd_inode);
+
+	set_capacity(disk, 0);
+	disk->flags &= ~GENHD_FL_UP;
+	up_write(&bdev_lookup_sem);
+}
+
 static void disk_invalidate(struct gendisk *disk)
 {
 	if (!(disk->flags & GENHD_FL_HIDDEN)) {
@@ -461,6 +486,12 @@ static void disk_invalidate(struct gendisk *disk)
 		sysfs_remove_link(block_depr, dev_name(disk_to_dev(disk)));
 	pm_runtime_set_memalloc_noio(disk_to_dev(disk), false);
 	device_del(disk_to_dev(disk));
+}
+
+static void unregister_disk(struct gendisk *disk)
+{
+	unregister_disk_partitions(disk);
+	disk_invalidate(disk);
 }
 
 static void register_disk(struct device *parent, struct gendisk *disk,
@@ -639,30 +670,7 @@ void del_gendisk(struct gendisk *disk)
 
 	blk_integrity_del(disk);
 	disk_del_events(disk);
-	/*
-	 * Block lookups of the disk until all bdevs are unhashed and the
-	 * disk is marked as dead (GENHD_FL_UP cleared).
-	 */
-	down_write(&bdev_lookup_sem);
-
-	mutex_lock(&disk->part0->bd_mutex);
-	blk_drop_partitions(disk);
-	mutex_unlock(&disk->part0->bd_mutex);
-
-	fsync_bdev(disk->part0);
-	__invalidate_device(disk->part0, true);
-
-	/*
-	 * Unhash the bdev inode for this device so that it can't be looked
-	 * up any more even if openers still hold references to it.
-	 */
-	remove_inode_hash(disk->part0->bd_inode);
-
-	set_capacity(disk, 0);
-	disk->flags &= ~GENHD_FL_UP;
-	up_write(&bdev_lookup_sem);
-
-	disk_invalidate(disk);
+	unregister_disk(disk);
 }
 EXPORT_SYMBOL(del_gendisk);
 
