@@ -1853,3 +1853,72 @@ out:
 	return 0;
 }
 EXPORT_SYMBOL(thaw_super);
+
+#ifdef CONFIG_PM_SLEEP
+static bool super_should_freeze(struct super_block *sb)
+{
+	if (!(sb->s_type->fs_flags & FS_AUTOFREEZE))
+		return false;
+	/*
+	 * We don't freeze virtual filesystems, we skip those filesystems with
+	 * no backing device.
+	 */
+	if (sb->s_bdi == &noop_backing_dev_info)
+		return false;
+
+	return true;
+}
+
+int fs_suspend_freeze_sb(struct super_block *sb, void *priv)
+{
+	int error = 0;
+
+	if (!grab_lock_super(sb)) {
+		pr_err("%s (%s): freezing failed to grab_super()\n",
+		       sb->s_type->name, sb->s_id);
+		return -ENOTTY;
+	}
+
+	if (!super_should_freeze(sb))
+		goto out;
+
+	pr_info("%s (%s): freezing\n", sb->s_type->name, sb->s_id);
+
+	error = freeze_super(sb, false);
+	if (!error)
+		lockdep_sb_freeze_release(sb);
+	else if (error != -EBUSY)
+		pr_notice("%s (%s): Unable to freeze, error=%d",
+			  sb->s_type->name, sb->s_id, error);
+
+out:
+	deactivate_locked_super(sb);
+	return error;
+}
+
+int fs_suspend_thaw_sb(struct super_block *sb, void *priv)
+{
+	int error = 0;
+
+	if (!grab_lock_super(sb)) {
+		pr_err("%s (%s): thawing failed to grab_super()\n",
+		       sb->s_type->name, sb->s_id);
+		return -ENOTTY;
+	}
+
+	if (!super_should_freeze(sb))
+		goto out;
+
+	pr_info("%s (%s): thawing\n", sb->s_type->name, sb->s_id);
+
+	error = thaw_super(sb, false);
+	if (error && error != -EBUSY)
+		pr_notice("%s (%s): Unable to unfreeze, error=%d",
+			  sb->s_type->name, sb->s_id, error);
+
+out:
+	deactivate_locked_super(sb);
+	return error;
+}
+
+#endif

@@ -2231,6 +2231,7 @@ struct file_system_type {
 #define FS_DISALLOW_NOTIFY_PERM	16	/* Disable fanotify permission events */
 #define FS_ALLOW_IDMAP         32      /* FS has been updated to handle vfs idmappings. */
 #define FS_RENAME_DOES_D_MOVE	32768	/* FS will handle d_move() during rename() internally. */
+#define FS_AUTOFREEZE           (1<<16)	/*  temporary as we phase kthread freezer out */
 	int (*init_fs_context)(struct fs_context *);
 	const struct fs_parameter_spec *parameters;
 	struct dentry *(*mount) (struct file_system_type *, int,
@@ -2306,6 +2307,19 @@ extern int user_statfs(const char __user *, struct kstatfs *);
 extern int fd_statfs(int, struct kstatfs *);
 extern int freeze_super(struct super_block *super, bool usercall);
 extern int thaw_super(struct super_block *super, bool usercall);
+#ifdef CONFIG_PM_SLEEP
+int fs_suspend_freeze_sb(struct super_block *sb, void *priv);
+int fs_suspend_thaw_sb(struct super_block *sb, void *priv);
+#else
+static inline int fs_suspend_freeze_sb(struct super_block *sb, void *priv)
+{
+	return 0;
+}
+static inline int fs_suspend_thaw_sb(struct super_block *sb, void *priv)
+{
+	return 0;
+}
+#endif
 extern __printf(2, 3)
 int super_setup_bdi_name(struct super_block *sb, char *fmt, ...);
 extern int super_setup_bdi(struct super_block *sb);
