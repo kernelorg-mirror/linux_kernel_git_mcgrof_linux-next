@@ -390,6 +390,25 @@ static int grab_super(struct super_block *s) __releases(sb_lock)
 	return 0;
 }
 
+/**
+ *	grab_lock_super - lock and grab_super() to get an active reference
+ *	@s: reference we are trying to make active
+ *
+ *	Using grab_super() assumes you have the sb_lock held, this gets it
+ *	for you and calls grab_super() to get an acquire an active reference an
+ *	active for the superblock. Once done with the superblock user should
+ *	call deactivate_locked_super().
+ *
+ *	Returns 0 when the successful otherwise 0 is returned.
+ */
+int grab_lock_super(struct super_block *s)
+{
+	spin_lock(&sb_lock);
+	if (!grab_super(s))
+		return 0;
+	return 1;
+}
+
 /*
  *	trylock_super - try to grab ->s_umount shared
  *	@sb: reference we are trying to grab
@@ -1913,3 +1932,71 @@ int sb_init_dio_done_wq(struct super_block *sb)
 		destroy_workqueue(wq);
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static bool super_should_freeze(struct super_block *sb)
+{
+	if (!(sb->s_type->fs_flags & FS_AUTOFREEZE))
+		return false;
+	/*
+	 * We don't freeze virtual filesystems, we skip those filesystems with
+	 * no backing device.
+	 */
+	if (sb->s_bdi == &noop_backing_dev_info)
+		return false;
+
+	return true;
+}
+
+int fs_suspend_freeze_sb(struct super_block *sb, void *priv)
+{
+	int error = 0;
+
+	if (!grab_lock_super(sb)) {
+		pr_err("%s (%s): freezing failed to grab_lock_super()\n",
+		       sb->s_type->name, sb->s_id);
+		return -ENOTTY;
+	}
+
+	if (!super_should_freeze(sb))
+		goto out;
+
+	pr_info("%s (%s): freezing\n", sb->s_type->name, sb->s_id);
+
+	error = freeze_super(sb, false);
+	if (!error)
+		lockdep_sb_freeze_release(sb);
+	else if (error != -EBUSY)
+		pr_notice("%s (%s): Unable to freeze, error=%d",
+			  sb->s_type->name, sb->s_id, error);
+
+out:
+	deactivate_locked_super(sb);
+	return error;
+}
+
+int fs_suspend_thaw_sb(struct super_block *sb, void *priv)
+{
+	int error = 0;
+
+	if (!grab_lock_super(sb)) {
+		pr_err("%s (%s): thawing failed to grab_lock_super()\n",
+		       sb->s_type->name, sb->s_id);
+		return -ENOTTY;
+	}
+
+	if (!super_should_freeze(sb))
+		goto out;
+
+	pr_info("%s (%s): thawing\n", sb->s_type->name, sb->s_id);
+
+	error = thaw_super(sb, false);
+	if (error && error != -EBUSY)
+		pr_notice("%s (%s): Unable to unfreeze, error=%d",
+			  sb->s_type->name, sb->s_id, error);
+
+out:
+	deactivate_locked_super(sb);
+	return error;
+}
+#endif /* CONFIG_PM_SLEEP */
