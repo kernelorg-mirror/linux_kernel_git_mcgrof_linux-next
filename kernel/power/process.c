@@ -140,6 +140,16 @@ int freeze_processes(void)
 
 	BUG_ON(in_atomic());
 
+	pr_info("Freezing filesystems ... ");
+	error = iterate_supers_reverse_excl(fs_suspend_freeze_sb, NULL);
+	if (error) {
+		pr_cont("failed\n");
+		iterate_supers_excl(fs_suspend_thaw_sb, NULL);
+		thaw_processes();
+		return error;
+	}
+	pr_cont("done.\n");
+
 	/*
 	 * Now that the whole userspace is frozen we need to disable
 	 * the OOM killer to disallow any further interference with
@@ -149,8 +159,10 @@ int freeze_processes(void)
 	if (!error && !oom_killer_disable(msecs_to_jiffies(freeze_timeout_msecs)))
 		error = -EBUSY;
 
-	if (error)
+	if (error) {
+		iterate_supers_excl(fs_suspend_thaw_sb, NULL);
 		thaw_processes();
+	}
 	return error;
 }
 
@@ -188,6 +200,7 @@ void thaw_processes(void)
 	pm_nosig_freezing = false;
 
 	oom_killer_enable();
+	iterate_supers_excl(fs_suspend_thaw_sb, NULL);
 
 	pr_info("Restarting tasks ... ");
 
