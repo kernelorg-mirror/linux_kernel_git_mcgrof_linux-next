@@ -344,6 +344,61 @@ static inline void blk_queue_free_zone_bitmaps(struct request_queue *q) {}
 static inline void blk_queue_clear_zone_settings(struct request_queue *q) {}
 #endif
 
+#ifdef CONFIG_FAIL_ADD_DISK
+
+/**
+ * struct blk_add_disk_fail - configuration for add disk failure injection
+ *
+ * You can enable add_disk() failure injection on boot, but the add_disk()
+ * path is quite large. In order to support allowing configuration of where
+ * exactly on that add_disk() we want to fail, we use a debugfs directory.
+
+ * By default enabling add_disk() failure on boot won't produce any failures,
+ * after boot you must enable at least one of the debugfs knobs. Kernel warnings
+ * which would typically happen on the block layer are supressed when using
+ * error injection.
+ *
+ * @get_queue: mimics a failure on the first blk_get_queue() at the beginning of
+ *	the add_disk() call chain.
+ * @alloc_devt: mimics a failure as if blk_alloc_devt() had failed
+ * @alloc_events: mimics failure as if disk_alloc_events() had failed
+ * @bdi_register: mimics failure as if bdi_register() had failed
+ * @register_disk: mimics failure as if register_disk() had failed
+ * @device_add: mimics failure as if the core device_add() call had failed
+ * @sysfs_depr_link: mimics failure as if creating the now deprecated sysfs
+ *	device link with sysfs_create_link() had failed.
+ * @sysfs_bdi_link: mimics failure as if creating the bdi link with
+ *	sysfs_create_link() had failed
+ * @register_queue: mimics failure on blk_register_queue()
+ * @disk_add_events: mimics failure on disk_add_events()
+ * @integrity_add: mimics failure on blk_integrity_add() at the very end
+ *	of the add_disk() call chain.
+ */
+struct blk_config_add_disk_fail {
+	bool get_queue;
+	bool alloc_devt;
+	bool alloc_events;
+	bool bdi_register;
+	bool register_disk;
+	bool device_add;
+	bool sysfs_depr_link;
+	bool sysfs_bdi_link;
+	bool register_queue;
+	bool disk_add_events;
+	bool integrity_add;
+};
+
+extern struct blk_config_add_disk_fail blk_config_add_disk_fail;
+
+void blk_init_add_disk_fail(void);
+#define blk_should_fail_add_disk(path_name) \
+	__blk_should_fail_add_disk(blk_config_add_disk_fail.path_name)
+int __blk_should_fail_add_disk(bool evaluate);
+#else
+static inline void blk_init_add_disk_fail(void) {}
+#define blk_should_fail_add_disk(path_name) (false)
+#endif
+
 int blk_alloc_devt(struct block_device *part, dev_t *devt);
 void blk_free_devt(dev_t devt);
 char *disk_name(struct gendisk *hd, int partno, char *buf);

@@ -1917,6 +1917,19 @@ config FAULT_INJECTION_USERCOPY
 	  Provides fault-injection capability to inject failures
 	  in usercopy functions (copy_from_user(), get_user(), ...).
 
+config FAIL_ADD_DISK
+	bool "Fault-injection capability for add_disk() callers"
+	depends on FAULT_INJECTION && BLOCK
+	help
+	  Provide fault-injection capability for the add_disk() block layer
+	  call path. This allows the kernel to provide error injection when
+	  the add_disk() call is made. You would use something like blktests
+	  test against this or just load the null_blk driver. This only
+	  enables the error injection functionality. To use it you must
+	  configure which path you want to trigger on error on using debugfs
+	  under /sys/kernel/debug/block/config_fail_add_disk/. By default
+	  all of these are disabled.
+
 config FAIL_MAKE_REQUEST
 	bool "Fault-injection capability for disk IO"
 	depends on FAULT_INJECTION && BLOCK

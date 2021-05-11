@@ -24,6 +24,29 @@ Available fault injection capabilities
 
   injects futex deadlock and uaddr fault errors.
 
+- fail_add_disk
+
+  allows error injection to the block layer's add_disk() call path. Enabling
+  this at boot doesn't immediately force errors, you have to then select post
+  boot where in the add_disk() code path you want a failure to be triggered.
+  The following code paths are supported:
+
+  # ls -1 /sys/kernel/debug/block/config_fail_add_disk/
+  alloc_devt
+  alloc_events
+  bdi_register
+  device_add
+  disk_add_events
+  get_queue
+  integrity_add
+  register_disk
+  register_queue
+  sysfs_bdi_link
+  sysfs_depr_link
+
+  If you enable CONFIG_FAULT_INJECTION_DEBUG_FS the fail_add_disk failure
+  injection parameters are placed under /sys/kernel/debug/block/fail_add_disk/
+
 - fail_make_request
 
   injects disk IO errors on devices permitted by setting
