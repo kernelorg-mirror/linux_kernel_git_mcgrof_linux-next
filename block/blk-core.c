@@ -1797,6 +1797,7 @@ int __init blk_dev_init(void)
 			sizeof(struct request_queue), 0, SLAB_PANIC, NULL);
 
 	blk_debugfs_root = debugfs_create_dir("block", NULL);
+	blk_init_add_disk_fail();
 
 	return 0;
 }

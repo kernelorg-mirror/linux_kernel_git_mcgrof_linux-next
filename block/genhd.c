@@ -24,6 +24,7 @@
 #include <linux/log2.h>
 #include <linux/pm_runtime.h>
 #include <linux/badblocks.h>
+#include <linux/fault-inject.h>
 
 #include "blk.h"
 
@@ -512,6 +513,10 @@ static int __must_check register_disk(struct device *parent,
 		WARN_ON(ddev->groups);
 		ddev->groups = groups;
 	}
+
+	if (blk_should_fail_add_disk(device_add))
+		return -ENOMEM;
+
 	err = device_add(ddev);
 	if (err) {
 		/*
@@ -521,7 +526,14 @@ static int __must_check register_disk(struct device *parent,
 		 */
 		return err;
 	}
+
+
 	if (!sysfs_deprecated) {
+		if (blk_should_fail_add_disk(sysfs_depr_link)) {
+			err = -ENOMEM;
+			goto exit_del_device;
+		}
+
 		err = sysfs_create_link(block_depr, &ddev->kobj,
 					kobject_name(&ddev->kobj));
 		if (err)
@@ -546,6 +558,11 @@ static int __must_check register_disk(struct device *parent,
 	disk_announce(disk);
 
 	if (disk->queue->backing_dev_info->dev) {
+		if (blk_should_fail_add_disk(sysfs_bdi_link)) {
+			err = -ENOMEM;
+			goto exit_del_block_depr;
+		}
+
 		err = sysfs_create_link(&ddev->kobj,
 			  &disk->queue->backing_dev_info->dev->kobj,
 			  "bdi");
@@ -582,6 +599,11 @@ static int __device_add_disk(struct device *parent, struct gendisk *disk,
 	dev_t devt;
 	int retval;
 
+	if (blk_should_fail_add_disk(get_queue)) {
+		disk->queue = NULL;
+		return -ESHUTDOWN;
+	}
+
 	/*
 	 * Take an extra ref on queue which will be put on disk_release()
 	 * so that it sticks around as long as @disk is there. The driver
@@ -614,12 +636,20 @@ static int __device_add_disk(struct device *parent, struct gendisk *disk,
 
 	disk->flags |= GENHD_FL_UP;
 
+	if (blk_should_fail_add_disk(alloc_devt))
+		return -EINVAL;
+
 	retval = blk_alloc_devt(disk->part0, &devt);
 	if (WARN_ON(retval))
 		return retval;
 
 	disk->major = MAJOR(devt);
 	disk->first_minor = MINOR(devt);
+
+	if (blk_should_fail_add_disk(alloc_events)) {
+		retval = -ENOMEM;
+		goto exit_blk_free_devt;
+	}
 
 	retval = disk_alloc_events(disk);
 	if (retval)
@@ -638,15 +668,32 @@ static int __device_add_disk(struct device *parent, struct gendisk *disk,
 
 		/* Register BDI before referencing it from bdev */
 		dev->devt = devt;
+
+		if (blk_should_fail_add_disk(bdi_register)) {
+			retval = -ENOMEM;
+			goto exit_disk_release_events;
+		}
+
 		retval = bdi_register(bdi, "%u:%u", MAJOR(devt), MINOR(devt));
 		if (WARN_ON(retval))
 			goto exit_disk_release_events;
 		bdi_set_owner(bdi, dev);
 		bdev_add(disk->part0, devt);
 	}
+
+	if (blk_should_fail_add_disk(register_disk)) {
+		retval = -ENOMEM;
+		goto exit_unregister_bdi;
+	}
+
 	retval = register_disk(parent, disk, groups);
 	if (retval)
 		goto exit_unregister_bdi;
+
+	if (blk_should_fail_add_disk(register_queue)) {
+		retval = -ENOMEM;
+		goto exit_unregister_disk;
+	}
 
 	if (register_queue) {
 		retval = blk_register_queue(disk);
@@ -654,9 +701,19 @@ static int __device_add_disk(struct device *parent, struct gendisk *disk,
 			goto exit_unregister_disk;
 	}
 
+	if (blk_should_fail_add_disk(disk_add_events)) {
+		retval = -ENOMEM;
+		goto exit_unregister_disk;
+	}
+
 	retval = disk_add_events(disk);
 	if (retval)
 		goto exit_unregister_disk;
+
+	if (blk_should_fail_add_disk(integrity_add)) {
+		retval = -ENOMEM;
+		goto exit_del_events;
+	}
 
 	retval = blk_integrity_add(disk);
 	if (retval)
