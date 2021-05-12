@@ -1699,6 +1699,7 @@ static int init_driver_queues(struct nullb *nullb)
 
 static int null_gendisk_register(struct nullb *nullb)
 {
+	int ret;
 	sector_t size = ((sector_t)nullb->dev->size * SZ_1M) >> SECTOR_SHIFT;
 	struct gendisk *disk;
 
@@ -1719,13 +1720,17 @@ static int null_gendisk_register(struct nullb *nullb)
 	strncpy(disk->disk_name, nullb->disk_name, DISK_NAME_LEN);
 
 	if (nullb->dev->zoned) {
-		int ret = null_register_zoned_dev(nullb);
+		ret = null_register_zoned_dev(nullb);
 
 		if (ret)
 			return ret;
 	}
 
-	add_disk(disk);
+	ret = add_disk(disk);
+	if (ret) {
+		put_disk(disk);
+		return ret;
+	}
 	return 0;
 }
 
