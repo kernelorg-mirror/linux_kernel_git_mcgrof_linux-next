@@ -707,6 +707,19 @@ static void pcd_probe_capabilities(void)
 	}
 }
 
+static void pcd_cleanup_disks(void)
+{
+	int unit;
+	struct pcd_unit *cd;
+
+	for (unit = 0, cd = pcd; unit < PCD_UNITS; unit++, cd++) {
+		if (!cd->disk)
+			continue;
+		blk_cleanup_disk(cd->disk);
+		blk_mq_free_tag_set(&cd->tag_set);
+	}
+}
+
 static int pcd_detect(void)
 {
 	char id[18];
@@ -755,12 +768,7 @@ static int pcd_detect(void)
 		return 0;
 
 	printk("%s: No CD-ROM drive found\n", name);
-	for (unit = 0, cd = pcd; unit < PCD_UNITS; unit++, cd++) {
-		if (!cd->disk)
-			continue;
-		blk_cleanup_disk(cd->disk);
-		blk_mq_free_tag_set(&cd->tag_set);
-	}
+	pcd_cleanup_disks();
 	pi_unregister_driver(par_drv);
 	return -1;
 }
