@@ -991,19 +991,24 @@ static int pd_probe(void)
 	for (unit = 0, disk = pd; unit < PD_UNITS; unit++, disk++) {
 		if (disk->gd) {
 			set_capacity(disk->gd, disk->capacity);
-			add_disk(disk->gd);
+			err = add_disk(disk->gd);
+			if (err)
+				goto out_cleanup_disks;
 			disk->registered = true;
 			found = 1;
 		}
 	}
 	if (!found) {
 		err = -ENODEV;
-		printk("%s: no valid drive found\n", name);
-		pi_unregister_driver(par_drv);
-		goto out;
+		goto out_cleanup_disks;
 	}
 
 	return 0;
+
+out_cleanup_disks:
+	printk("%s: no valid drive found\n", name);
+	pi_unregister_driver(par_drv);
+	pd_cleanup_disks();
 out:
 	return err;
 }
