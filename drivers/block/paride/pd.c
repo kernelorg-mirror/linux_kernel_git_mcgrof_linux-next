@@ -938,9 +938,9 @@ static void pd_cleanup_disks(void)
 	}
 }
 
-static int pd_detect(void)
+static int pd_probe(void)
 {
-	int found = 0, unit, pd_drive_count = 0;
+	int found, unit, pd_drive_count = 0, err = -ENOMEM;
 	struct pd_unit *disk;
 
 	for (unit = 0; unit < PD_UNITS; unit++) {
@@ -962,7 +962,7 @@ static int pd_detect(void)
 	par_drv = pi_register_driver(name);
 	if (!par_drv) {
 		pr_err("failed to register %s driver\n", name);
-		return -1;
+		goto out;
 	}
 
 	if (pd_drive_count == 0) { /* nothing spec'd - so autoprobe for 1 */
@@ -997,14 +997,21 @@ static int pd_detect(void)
 		}
 	}
 	if (!found) {
+		err = -ENODEV;
 		printk("%s: no valid drive found\n", name);
 		pi_unregister_driver(par_drv);
+		goto out;
 	}
-	return found;
+
+	return 0;
+out:
+	return err;
 }
 
 static int __init pd_init(void)
 {
+	int err = -ENODEV;
+
 	if (disable)
 		goto out1;
 
@@ -1013,7 +1020,8 @@ static int __init pd_init(void)
 
 	printk("%s: %s version %s, major %d, cluster %d, nice %d\n",
 	       name, name, PD_VERSION, major, cluster, nice);
-	if (!pd_detect())
+
+	err = pd_probe();
 		goto out2;
 
 	return 0;
@@ -1021,7 +1029,7 @@ static int __init pd_init(void)
 out2:
 	unregister_blkdev(major, name);
 out1:
-	return -ENODEV;
+	return err;
 }
 
 static void __exit pd_exit(void)
