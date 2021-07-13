@@ -1055,9 +1055,9 @@ static void __exit pcd_exit(void)
 			continue;
 
 		if (cd->present) {
+			unregister_cdrom(&cd->info);
 			del_gendisk(cd->disk);
 			pi_release(cd->pi);
-			unregister_cdrom(&cd->info);
 		}
 		blk_cleanup_queue(cd->disk->queue);
 		blk_mq_free_tag_set(&cd->tag_set);
