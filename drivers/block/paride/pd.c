@@ -920,6 +920,24 @@ static void pd_probe_drive(struct pd_unit *disk)
 	put_disk(p);
 }
 
+static void pd_cleanup_disks(void)
+{
+	struct pd_unit *disk;
+	int unit;
+
+	for (unit = 0, disk = pd; unit < PD_UNITS; unit++, disk++) {
+		struct gendisk *p = disk->gd;
+		if (p) {
+			disk->gd = NULL;
+			if (p->registered)
+				del_gendisk(p);
+			blk_cleanup_disk(p);
+			blk_mq_free_tag_set(&disk->tag_set);
+			pi_release(disk->pi);
+		}
+	}
+}
+
 static int pd_detect(void)
 {
 	int found = 0, unit, pd_drive_count = 0;
@@ -1008,20 +1026,8 @@ out1:
 
 static void __exit pd_exit(void)
 {
-	struct pd_unit *disk;
-	int unit;
 	unregister_blkdev(major, name);
-	for (unit = 0, disk = pd; unit < PD_UNITS; unit++, disk++) {
-		struct gendisk *p = disk->gd;
-		if (p) {
-			disk->gd = NULL;
-			if (p->registered)
-				del_gendisk(p);
-			blk_cleanup_disk(p);
-			blk_mq_free_tag_set(&disk->tag_set);
-			pi_release(disk->pi);
-		}
-	}
+	pd_cleanup_disks();
 }
 
 MODULE_LICENSE("GPL");
