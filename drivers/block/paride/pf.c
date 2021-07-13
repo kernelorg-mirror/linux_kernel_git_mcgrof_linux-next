@@ -1038,6 +1038,7 @@ static int __init pf_init(void)
 {				/* preliminary initialisation */
 	struct pf_unit *pf;
 	int unit;
+	int err;
 
 	if (disable)
 		return -EINVAL;
@@ -1048,16 +1049,9 @@ static int __init pf_init(void)
 		return -ENODEV;
 	pf_busy = 0;
 
-	if (register_blkdev(major, name)) {
-		for (pf = units, unit = 0; unit < PF_UNITS; pf++, unit++) {
-			if (!pf->disk)
-				continue;
-			blk_cleanup_queue(pf->disk->queue);
-			blk_mq_free_tag_set(&pf->tag_set);
-			put_disk(pf->disk);
-		}
-		return -EBUSY;
-	}
+	err = register_blkdev(major, name);
+	if (err)
+		goto err_out_disks;
 
 	for (pf = units, unit = 0; unit < PF_UNITS; pf++, unit++) {
 		struct gendisk *disk = pf->disk;
@@ -1067,7 +1061,12 @@ static int __init pf_init(void)
 		disk->private_data = pf;
 		add_disk(disk);
 	}
+
 	return 0;
+
+err_out_disks:
+	pf_remove_disks();
+	return err;
 }
 
 static void __exit pf_exit(void)
