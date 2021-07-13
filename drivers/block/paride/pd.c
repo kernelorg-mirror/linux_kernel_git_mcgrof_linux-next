@@ -234,6 +234,7 @@ struct pd_unit {
 	int removable;		/* removable media device  ?  */
 	int standby;
 	int alt_geom;
+	bool registered;
 	char name[PD_NAMELEN];	/* pda, pdb, etc ... */
 	struct gendisk *gd;
 	struct blk_mq_tag_set tag_set;
@@ -973,6 +974,7 @@ static int pd_detect(void)
 		if (disk->gd) {
 			set_capacity(disk->gd, disk->capacity);
 			add_disk(disk->gd);
+			disk->registered = true;
 			found = 1;
 		}
 	}
@@ -1013,9 +1015,10 @@ static void __exit pd_exit(void)
 		struct gendisk *p = disk->gd;
 		if (p) {
 			disk->gd = NULL;
-			del_gendisk(p);
-			blk_mq_free_tag_set(&disk->tag_set);
+			if (p->registered)
+				del_gendisk(p);
 			blk_cleanup_disk(p);
+			blk_mq_free_tag_set(&disk->tag_set);
 			pi_release(disk->pi);
 		}
 	}
