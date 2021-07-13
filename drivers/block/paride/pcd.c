@@ -1053,22 +1053,8 @@ out_cleanup_disk:
 
 static void __exit pcd_exit(void)
 {
-	struct pcd_unit *cd;
-	int unit;
 
-	for (unit = 0, cd = pcd; unit < PCD_UNITS; unit++, cd++) {
-		if (!cd->disk)
-			continue;
-
-		if (cd->present) {
-			unregister_cdrom(&cd->info);
-			del_gendisk(cd->disk);
-			pi_release(cd->pi);
-		}
-		blk_cleanup_queue(cd->disk->queue);
-		blk_mq_free_tag_set(&cd->tag_set);
-		put_disk(cd->disk);
-	}
+	pcd_cleanup_disks();
 	unregister_blkdev(major, name);
 	pi_unregister_driver(par_drv);
 }
