@@ -1011,6 +1011,7 @@ static int __init pcd_init(void)
 {
 	struct pcd_unit *cd;
 	int unit;
+	int err;
 
 	if (disable)
 		return -EINVAL;
@@ -1039,11 +1040,17 @@ static int __init pcd_init(void)
 		if (cd->present) {
 			register_cdrom(cd->disk, &cd->info);
 			cd->disk->private_data = cd;
-			add_disk(cd->disk);
+			err = add_disk(cd->disk);
+			if (err)
+				goto out_cleanup_disk;
 		}
 	}
 
 	return 0;
+
+out_cleanup_disk:
+	pcd_cleanup_disks();
+	return err;
 }
 
 static void __exit pcd_exit(void)
