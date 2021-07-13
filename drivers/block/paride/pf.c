@@ -1014,6 +1014,26 @@ static void do_pf_write_done(void)
 	next_request(0);
 }
 
+static void pf_remove_disks(void)
+{
+	struct pf_unit *pf;
+	int unit;
+
+	for (pf = units, unit = 0; unit < PF_UNITS; pf++, unit++) {
+		if (!pf->disk)
+			continue;
+
+		if (pf->present)
+			del_gendisk(pf->disk);
+
+		blk_cleanup_disk(pf->disk);
+		blk_mq_free_tag_set(&pf->tag_set);
+
+		if (pf->present)
+			pi_release(pf->pi);
+	}
+}
+
 static int __init pf_init(void)
 {				/* preliminary initialisation */
 	struct pf_unit *pf;
@@ -1055,20 +1075,7 @@ static void __exit pf_exit(void)
 	struct pf_unit *pf;
 	int unit;
 	unregister_blkdev(major, name);
-	for (pf = units, unit = 0; unit < PF_UNITS; pf++, unit++) {
-		if (!pf->disk)
-			continue;
-
-		if (pf->present)
-			del_gendisk(pf->disk);
-
-		blk_cleanup_queue(pf->disk->queue);
-		blk_mq_free_tag_set(&pf->tag_set);
-		put_disk(pf->disk);
-
-		if (pf->present)
-			pi_release(pf->pi);
-	}
+	pf_remove_disks();
 }
 
 MODULE_LICENSE("GPL");
