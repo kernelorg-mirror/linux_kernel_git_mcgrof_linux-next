@@ -715,6 +715,10 @@ static void pcd_cleanup_disks(void)
 	for (unit = 0, cd = pcd; unit < PCD_UNITS; unit++, cd++) {
 		if (!cd->disk)
 			continue;
+		if (cd->present && cd->disk->private_data) {
+			unregister_cdrom(&cd->info);
+			del_gendisk(cd->disk);
+		}
 		blk_cleanup_disk(cd->disk);
 		blk_mq_free_tag_set(&cd->tag_set);
 	}
@@ -1030,7 +1034,9 @@ static int __init pcd_init(void)
 
 	for (unit = 0, cd = pcd; unit < PCD_UNITS; unit++, cd++) {
 		if (cd->present) {
-			register_cdrom(cd->disk, &cd->info);
+			err = register_cdrom(cd->disk, &cd->info);
+			if (err)
+				goto pcd_cleanup_disks;
 			cd->disk->private_data = cd;
 			err = add_disk(cd->disk);
 			if (err)
