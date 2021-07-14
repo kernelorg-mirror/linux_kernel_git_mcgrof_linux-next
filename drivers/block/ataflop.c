@@ -1990,24 +1990,33 @@ static int ataflop_alloc_disk(unsigned int drive, unsigned int type)
 
 static DEFINE_MUTEX(ataflop_probe_lock);
 
-static void ataflop_probe(dev_t dev)
+static int ataflop_probe(dev_t dev)
 {
 	int drive = MINOR(dev) & 3;
 	int type  = MINOR(dev) >> 2;
+	int err = 0;
 
 	if (type)
 		type--;
 
 	if (drive >= FD_MAX_UNITS || type >= NUM_DISK_MINORS)
-		return;
+		return -EINVAL;
+
 	mutex_lock(&ataflop_probe_lock);
 	if (!unit[drive].disk[type]) {
-		if (ataflop_alloc_disk(drive, type) == 0) {
-			add_disk(unit[drive].disk[type]);
-			unit[drive].registered[type] = true;
+		err = ataflop_alloc_disk(drive, type);
+		if (err == 0) {
+			err = add_disk(unit[drive].disk[type]);
+			if (err) {
+				blk_cleanup_disk(unit[drive].disk[type]);
+				unit[drive].disk[type] = NULL;
+			} else
+				unit[drive].registered[type] = true;
 		}
 	}
 	mutex_unlock(&ataflop_probe_lock);
+
+	return err;
 }
 
 static void atari_cleanup_floppy_disk(struct atari_floppy_struct *fs)
