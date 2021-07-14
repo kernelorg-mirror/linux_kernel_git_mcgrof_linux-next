@@ -5737,12 +5737,18 @@ out_unlock_disks_mutex:
 	return error;
 }
 
-static void md_probe(dev_t dev)
+static int md_probe(dev_t dev)
 {
+	int error = 0;
+
 	if (MAJOR(dev) == MD_MAJOR && MINOR(dev) >= 512)
-		return;
+		return -EINVAL;
 	if (create_on_open)
-		md_alloc(dev, NULL);
+		error = md_alloc(dev, NULL);
+	if (error == -EEXIST)
+		return 0;
+
+	return error;
 }
 
 static int add_named_array(const char *val, const struct kernel_param *kp)

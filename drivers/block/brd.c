@@ -437,9 +437,12 @@ out_free_dev:
 	return err;
 }
 
-static void brd_probe(dev_t dev)
+static int brd_probe(dev_t dev)
 {
-	brd_alloc(MINOR(dev) / max_part);
+	int ret =  brd_alloc(MINOR(dev) / max_part);
+	if (ret == -EEXIST)
+		return 0;
+	return ret;
 }
 
 static void brd_del_one(struct brd_device *brd)
