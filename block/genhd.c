@@ -630,6 +630,8 @@ static int __device_add_disk(struct device *parent, struct gendisk *disk,
 	if (ret)
 		goto exit_del_events;
 
+	disk->flags |= GENHD_FL_DISK_ADDED;
+
 	return 0;
 exit_del_events:
 	disk_del_events(disk);
@@ -677,6 +679,9 @@ EXPORT_SYMBOL(device_add_disk_no_queue_reg);
  * with put_disk(), which should be called after del_gendisk(), if
  * __device_add_disk() was used.
  *
+ * Drivers can safely call this even if they are not sure if the respective
+ * __device_add_disk() call succeeded.
+ *
  * Drivers exist which depend on the release of the gendisk to be synchronous,
  * it should not be deferred.
  *
@@ -685,6 +690,9 @@ EXPORT_SYMBOL(device_add_disk_no_queue_reg);
 void del_gendisk(struct gendisk *disk)
 {
 	might_sleep();
+
+	if (!blk_disk_registered(disk))
+		return;
 
 	if (WARN_ON_ONCE(!disk->queue))
 		return;
