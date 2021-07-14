@@ -1059,7 +1059,9 @@ static int __init pf_init(void)
 		if (!pf->present)
 			continue;
 		disk->private_data = pf;
-		add_disk(disk);
+		err = add_disk(disk);
+		if (err)
+			goto err_out_disks;
 	}
 
 	return 0;
