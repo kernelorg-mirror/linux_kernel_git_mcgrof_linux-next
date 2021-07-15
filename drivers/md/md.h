@@ -766,7 +766,7 @@ static inline bool is_mddev_broken(struct md_rdev *rdev, const char *md_type)
 {
 	int flags = rdev->bdev->bd_disk->flags;
 
-	if (!(flags & GENHD_FL_UP)) {
+	if (!(flags & GENHD_FL_DISK_ADDED)) {
 		if (!test_and_set_bit(MD_BROKEN, &rdev->mddev->flags))
 			pr_warn("md: %s: %s array has a missing/failed member\n",
 				mdname(rdev->mddev), md_type);
