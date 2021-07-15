@@ -61,7 +61,7 @@ struct partition_meta_info {
  * Affects responses to the ``CDROM_GET_CAPABILITY`` ioctl.
  *
  * ``GENHD_FL_UP`` (0x0010): indicates that the block device is "up",
- * with a similar meaning to network interfaces.
+ * and we can add / remove partitions.
  *
  * ``GENHD_FL_SUPPRESS_PARTITION_INFO`` (0x0020): don't include
  * partition information in ``/proc/partitions`` or in the output of
