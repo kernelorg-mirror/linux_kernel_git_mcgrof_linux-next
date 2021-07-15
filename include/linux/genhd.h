@@ -219,14 +219,16 @@ static inline dev_t disk_devt(struct gendisk *disk)
 void disk_uevent(struct gendisk *disk, enum kobject_action action);
 
 /* block/genhd.c */
-extern int device_add_disk(struct device *parent, struct gendisk *disk,
-			   const struct attribute_group **groups);
-static inline int add_disk(struct gendisk *disk)
+extern int __must_check device_add_disk(struct device *parent,
+					struct gendisk *disk,
+					const struct attribute_group **groups);
+static inline int __must_check add_disk(struct gendisk *disk)
 {
 	return device_add_disk(NULL, disk, NULL);
 }
-extern int device_add_disk_no_queue_reg(struct device *parent, struct gendisk *disk);
-static inline int add_disk_no_queue_reg(struct gendisk *disk)
+extern int __must_check device_add_disk_no_queue_reg(struct device *parent,
+						     struct gendisk *disk);
+static inline int  __must_check add_disk_no_queue_reg(struct gendisk *disk)
 {
 	return device_add_disk_no_queue_reg(NULL, disk);
 }

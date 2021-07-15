@@ -531,9 +531,10 @@ exit_del_device:
  * with the kernel.
  *
  */
-static int __device_add_disk(struct device *parent, struct gendisk *disk,
-			     const struct attribute_group **groups,
-			     bool register_queue)
+static int __must_check __device_add_disk(struct device *parent,
+					  struct gendisk *disk,
+					  const struct attribute_group **groups,
+					  bool register_queue)
 {
 	int ret;
 
@@ -651,15 +652,16 @@ exit_free_ext_minor:
 	return ret;
 }
 
-int device_add_disk(struct device *parent, struct gendisk *disk,
-		    const struct attribute_group **groups)
+int __must_check device_add_disk(struct device *parent, struct gendisk *disk,
+				 const struct attribute_group **groups)
 
 {
 	return __device_add_disk(parent, disk, groups, true);
 }
 EXPORT_SYMBOL(device_add_disk);
 
-int device_add_disk_no_queue_reg(struct device *parent, struct gendisk *disk)
+int __must_check device_add_disk_no_queue_reg(struct device *parent,
+					      struct gendisk *disk)
 {
 	return __device_add_disk(parent, disk, NULL, false);
 }
