@@ -1257,8 +1257,7 @@ dev_t blk_lookup_devt(const char *name, int partno)
 	return devt;
 }
 
-struct gendisk *__alloc_disk_node(int minors, int node_id,
-		struct lock_class_key *lkclass)
+struct gendisk *__alloc_disk_node(int node_id, struct lock_class_key *lkclass)
 {
 	struct gendisk *disk;
 
@@ -1280,7 +1279,6 @@ struct gendisk *__alloc_disk_node(int minors, int node_id,
 	if (xa_insert(&disk->part_tbl, 0, disk->part0, GFP_KERNEL))
 		goto out_destroy_part_tbl;
 
-	disk->minors = minors;
 	rand_initialize_disk(disk);
 	disk_to_dev(disk)->class = &block_class;
 	disk_to_dev(disk)->type = &disk_type;
@@ -1312,7 +1310,7 @@ struct gendisk *__blk_alloc_disk(int node, struct lock_class_key *lkclass)
 	if (!q)
 		return NULL;
 
-	disk = __alloc_disk_node(0, node, lkclass);
+	disk = __alloc_disk_node(node, lkclass);
 	if (!disk) {
 		blk_cleanup_queue(q);
 		return NULL;
