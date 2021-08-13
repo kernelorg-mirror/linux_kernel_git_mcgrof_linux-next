@@ -160,6 +160,7 @@ struct kernfs_node {
 
 	unsigned short		flags;
 	umode_t			mode;
+	struct module           *owner;
 	struct kernfs_iattrs	*iattr;
 };
 
@@ -373,12 +374,14 @@ void kernfs_destroy_root(struct kernfs_root *root);
 
 struct kernfs_node *kernfs_create_dir_ns(struct kernfs_node *parent,
 					 const char *name, umode_t mode,
+					 struct module *owner,
 					 kuid_t uid, kgid_t gid,
 					 void *priv, const void *ns);
 struct kernfs_node *kernfs_create_empty_dir(struct kernfs_node *parent,
 					    const char *name);
 struct kernfs_node *__kernfs_create_file(struct kernfs_node *parent,
 					 const char *name, umode_t mode,
+					 struct module *owner,
 					 kuid_t uid, kgid_t gid,
 					 loff_t size,
 					 const struct kernfs_ops *ops,
@@ -475,13 +478,15 @@ static inline void kernfs_destroy_root(struct kernfs_root *root) { }
 
 static inline struct kernfs_node *
 kernfs_create_dir_ns(struct kernfs_node *parent, const char *name,
-		     umode_t mode, kuid_t uid, kgid_t gid,
+		     umode_t mode, struct module *owner,
+		     kuid_t uid, kgid_t gid,
 		     void *priv, const void *ns)
 { return ERR_PTR(-ENOSYS); }
 
 static inline struct kernfs_node *
 __kernfs_create_file(struct kernfs_node *parent, const char *name,
-		     umode_t mode, kuid_t uid, kgid_t gid,
+		     umode_t mode, struct module *owner,
+		     kuid_t uid, kgid_t gid,
 		     loff_t size, const struct kernfs_ops *ops,
 		     void *priv, const void *ns, struct lock_class_key *key)
 { return ERR_PTR(-ENOSYS); }
@@ -568,14 +573,15 @@ static inline struct kernfs_node *
 kernfs_create_dir(struct kernfs_node *parent, const char *name, umode_t mode,
 		  void *priv)
 {
-	return kernfs_create_dir_ns(parent, name, mode,
+	return kernfs_create_dir_ns(parent, name, mode, parent->owner,
 				    GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
 				    priv, NULL);
 }
 
 static inline struct kernfs_node *
 kernfs_create_file_ns(struct kernfs_node *parent, const char *name,
-		      umode_t mode, kuid_t uid, kgid_t gid,
+		      umode_t mode, struct module *owner,
+		      kuid_t uid, kgid_t gid,
 		      loff_t size, const struct kernfs_ops *ops,
 		      void *priv, const void *ns)
 {
@@ -584,15 +590,16 @@ kernfs_create_file_ns(struct kernfs_node *parent, const char *name,
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	key = (struct lock_class_key *)&ops->lockdep_key;
 #endif
-	return __kernfs_create_file(parent, name, mode, uid, gid,
+	return __kernfs_create_file(parent, name, mode, owner, uid, gid,
 				    size, ops, priv, ns, key);
 }
 
 static inline struct kernfs_node *
 kernfs_create_file(struct kernfs_node *parent, const char *name, umode_t mode,
+		   struct module *owner,
 		   loff_t size, const struct kernfs_ops *ops, void *priv)
 {
-	return kernfs_create_file_ns(parent, name, mode,
+	return kernfs_create_file_ns(parent, name, mode, owner,
 				     GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
 				     size, ops, priv, NULL);
 }
