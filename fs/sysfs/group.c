@@ -135,7 +135,8 @@ static int internal_create_group(struct kobject *kobj, int update,
 		} else {
 			kn = kernfs_create_dir_ns(kobj->sd, grp->name,
 						  S_IRWXU | S_IRUGO | S_IXUGO,
-						  uid, gid, kobj, NULL);
+						  uid, gid, kobj, NULL,
+						  grp->owner);
 			if (IS_ERR(kn)) {
 				if (PTR_ERR(kn) == -EEXIST)
 					sysfs_warn_dup(kobj->sd, grp->name);

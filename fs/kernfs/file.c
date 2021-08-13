@@ -978,6 +978,7 @@ const struct file_operations kernfs_file_fops = {
  * @priv: private data for the file
  * @ns: optional namespace tag of the file
  * @key: lockdep key for the file's active_ref, %NULL to disable lockdep
+ * @owner: if set, the module owner of the file
  *
  * Returns the created node on success, ERR_PTR() value on error.
  */
@@ -987,7 +988,8 @@ struct kernfs_node *__kernfs_create_file(struct kernfs_node *parent,
 					 loff_t size,
 					 const struct kernfs_ops *ops,
 					 void *priv, const void *ns,
-					 struct lock_class_key *key)
+					 struct lock_class_key *key,
+					 struct module *owner)
 {
 	struct kernfs_node *kn;
 	unsigned flags;
@@ -996,7 +998,7 @@ struct kernfs_node *__kernfs_create_file(struct kernfs_node *parent,
 	flags = KERNFS_FILE;
 
 	kn = kernfs_new_node(parent, name, (mode & S_IALLUGO) | S_IFREG,
-			     uid, gid, flags);
+			     uid, gid, flags, owner);
 	if (!kn)
 		return ERR_PTR(-ENOMEM);
 

@@ -209,7 +209,7 @@ static int rdtgroup_add_file(struct kernfs_node *parent_kn, struct rftype *rft)
 
 	kn = __kernfs_create_file(parent_kn, rft->name, rft->mode,
 				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
-				  0, rft->kf_ops, rft, NULL, NULL);
+				  0, rft->kf_ops, rft, NULL, NULL, NULL);
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
 
@@ -2482,7 +2482,7 @@ static int mon_addfile(struct kernfs_node *parent_kn, const char *name,
 
 	kn = __kernfs_create_file(parent_kn, name, 0444,
 				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, 0,
-				  &kf_mondata_ops, priv, NULL, NULL);
+				  &kf_mondata_ops, priv, NULL, NULL, NULL);
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
 

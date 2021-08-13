@@ -3975,7 +3975,7 @@ static int cgroup_add_file(struct cgroup_subsys_state *css, struct cgroup *cgrp,
 				  cgroup_file_mode(cft),
 				  GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
 				  0, cft->kf_ops, cft,
-				  NULL, key);
+				  NULL, key, NULL);
 	if (IS_ERR(kn))
 		return PTR_ERR(kn);
 

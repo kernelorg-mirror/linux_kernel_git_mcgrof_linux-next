@@ -134,7 +134,8 @@ int kernfs_add_one(struct kernfs_node *kn);
 struct kernfs_node *kernfs_new_node(struct kernfs_node *parent,
 				    const char *name, umode_t mode,
 				    kuid_t uid, kgid_t gid,
-				    unsigned flags);
+				    unsigned flags,
+				    struct module *owner);
 
 /*
  * file.c
