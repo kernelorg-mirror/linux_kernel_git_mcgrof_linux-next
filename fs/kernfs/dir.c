@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/security.h>
 #include <linux/hash.h>
+#include <linux/module.h>
 
 #include "kernfs-internal.h"
 
@@ -417,8 +418,14 @@ struct kernfs_node *kernfs_get_active(struct kernfs_node *kn)
 	if (unlikely(!kn))
 		return NULL;
 
-	if (!atomic_inc_unless_negative(&kn->active))
+	if (unlikely(kn->owner && !try_module_get(kn->owner)))
 		return NULL;
+
+	if (!atomic_inc_unless_negative(&kn->active)) {
+		if (kn->owner)
+			module_put(kn->owner);
+		return NULL;
+	}
 
 	if (kernfs_lockdep(kn))
 		rwsem_acquire_read(&kn->dep_map, 0, 1, _RET_IP_);
@@ -442,6 +449,8 @@ void kernfs_put_active(struct kernfs_node *kn)
 	if (kernfs_lockdep(kn))
 		rwsem_release(&kn->dep_map, _RET_IP_);
 	v = atomic_dec_return(&kn->active);
+	if (kn->owner)
+		module_put(kn->owner);
 	if (likely(v != KN_DEACTIVATED_BIAS))
 		return;
 
@@ -571,6 +580,7 @@ struct kernfs_node *kernfs_node_from_dentry(struct dentry *dentry)
 static struct kernfs_node *__kernfs_new_node(struct kernfs_root *root,
 					     struct kernfs_node *parent,
 					     const char *name, umode_t mode,
+					     struct module *owner,
 					     kuid_t uid, kgid_t gid,
 					     unsigned flags)
 {
@@ -606,6 +616,7 @@ static struct kernfs_node *__kernfs_new_node(struct kernfs_root *root,
 
 	kn->name = name;
 	kn->mode = mode;
+	kn->owner = owner;
 	kn->flags = flags;
 
 	if (!uid_eq(uid, GLOBAL_ROOT_UID) || !gid_eq(gid, GLOBAL_ROOT_GID)) {
@@ -639,13 +650,14 @@ static struct kernfs_node *__kernfs_new_node(struct kernfs_root *root,
 
 struct kernfs_node *kernfs_new_node(struct kernfs_node *parent,
 				    const char *name, umode_t mode,
+				    struct module *owner,
 				    kuid_t uid, kgid_t gid,
 				    unsigned flags)
 {
 	struct kernfs_node *kn;
 
 	kn = __kernfs_new_node(kernfs_root(parent), parent,
-			       name, mode, uid, gid, flags);
+			       name, mode, owner, uid, gid, flags);
 	if (kn) {
 		kernfs_get(parent);
 		kn->parent = parent;
@@ -926,7 +938,7 @@ struct kernfs_root *kernfs_create_root(struct kernfs_syscall_ops *scops,
 		root->id_highbits = 1;
 
 	kn = __kernfs_new_node(root, NULL, "", S_IFDIR | S_IRUGO | S_IXUGO,
-			       GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
+			       NULL, GLOBAL_ROOT_UID, GLOBAL_ROOT_GID,
 			       KERNFS_DIR);
 	if (!kn) {
 		idr_destroy(&root->ino_idr);
@@ -965,6 +977,7 @@ void kernfs_destroy_root(struct kernfs_root *root)
  * @parent: parent in which to create a new directory
  * @name: name of the new directory
  * @mode: mode of the new directory
+ * @owner: if set, the module owner of this directory
  * @uid: uid of the new directory
  * @gid: gid of the new directory
  * @priv: opaque data associated with the new directory
@@ -974,6 +987,7 @@ void kernfs_destroy_root(struct kernfs_root *root)
  */
 struct kernfs_node *kernfs_create_dir_ns(struct kernfs_node *parent,
 					 const char *name, umode_t mode,
+					 struct module *owner,
 					 kuid_t uid, kgid_t gid,
 					 void *priv, const void *ns)
 {
@@ -982,7 +996,7 @@ struct kernfs_node *kernfs_create_dir_ns(struct kernfs_node *parent,
 
 	/* allocate */
 	kn = kernfs_new_node(parent, name, mode | S_IFDIR,
-			     uid, gid, KERNFS_DIR);
+			     owner, uid, gid, KERNFS_DIR);
 	if (!kn)
 		return ERR_PTR(-ENOMEM);
 
@@ -1014,7 +1028,7 @@ struct kernfs_node *kernfs_create_empty_dir(struct kernfs_node *parent,
 
 	/* allocate */
 	kn = kernfs_new_node(parent, name, S_IRUGO|S_IXUGO|S_IFDIR,
-			     GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, KERNFS_DIR);
+			     NULL, GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, KERNFS_DIR);
 	if (!kn)
 		return ERR_PTR(-ENOMEM);
 
