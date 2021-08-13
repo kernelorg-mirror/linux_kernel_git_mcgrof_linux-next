@@ -291,8 +291,9 @@ int sysfs_add_file_mode_ns(struct kernfs_node *parent,
 		key = attr->key ?: (struct lock_class_key *)&attr->skey;
 #endif
 
-	kn = __kernfs_create_file(parent, attr->name, mode & 0777, uid, gid,
-				  PAGE_SIZE, ops, (void *)attr, ns, key);
+	kn = __kernfs_create_file(parent, attr->name, mode & 0777, attr->owner,
+				  uid, gid, PAGE_SIZE, ops, (void *)attr, ns,
+				  key);
 	if (IS_ERR(kn)) {
 		if (PTR_ERR(kn) == -EEXIST)
 			sysfs_warn_dup(parent, attr->name);
@@ -326,8 +327,9 @@ int sysfs_add_bin_file_mode_ns(struct kernfs_node *parent,
 		key = attr->key ?: (struct lock_class_key *)&attr->skey;
 #endif
 
-	kn = __kernfs_create_file(parent, attr->name, mode & 0777, uid, gid,
-				  battr->size, ops, (void *)attr, ns, key);
+	kn = __kernfs_create_file(parent, attr->name, mode & 0777, attr->owner,
+				  uid, gid, battr->size, ops, (void *)attr, ns,
+				  key);
 	if (IS_ERR(kn)) {
 		if (PTR_ERR(kn) == -EEXIST)
 			sysfs_warn_dup(parent, attr->name);
