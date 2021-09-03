@@ -151,6 +151,15 @@ static inline void fw_state_done(struct fw_priv *fw_priv)
 
 int assign_fw(struct firmware *fw, struct device *device);
 
+#ifdef CONFIG_FW_LOADER_BUILTIN
+bool firmware_is_builtin(const struct firmware *fw);
+#else
+static inline bool firmware_is_builtin(const struct firmware *fw)
+{
+	return false;
+}
+#endif
+
 #ifdef CONFIG_FW_LOADER_PAGED_BUF
 void fw_free_paged_buf(struct fw_priv *fw_priv);
 int fw_grow_paged_buf(struct fw_priv *fw_priv, int pages_needed);
