@@ -114,11 +114,12 @@ Builtin microcode
 =================
 
 The loader supports also loading of a builtin microcode supplied through
-the regular builtin firmware method CONFIG_EXTRA_FIRMWARE. Only 64-bit is
-currently supported.
+the regular builtin firmware method using CONFIG_FW_LOADER_BUILTIN and
+CONFIG_EXTRA_FIRMWARE. Only 64-bit is currently supported.
 
 Here's an example::
 
+  CONFIG_FW_LOADER_BUILTIN=y
   CONFIG_EXTRA_FIRMWARE="intel-ucode/06-3a-09 amd-ucode/microcode_amd_fam15h.bin"
   CONFIG_EXTRA_FIRMWARE_DIR="/lib/firmware"
 

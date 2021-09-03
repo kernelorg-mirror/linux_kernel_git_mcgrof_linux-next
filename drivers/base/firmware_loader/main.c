@@ -95,7 +95,7 @@ static struct firmware_cache fw_cache;
 
 /* Builtin firmware support */
 
-#ifdef CONFIG_FW_LOADER
+#ifdef CONFIG_FW_LOADER_BUILTIN
 
 extern struct builtin_fw __start_builtin_fw[];
 extern struct builtin_fw __end_builtin_fw[];
@@ -137,7 +137,7 @@ static bool fw_is_builtin_firmware(const struct firmware *fw)
 	return false;
 }
 
-#else /* Module case - no builtin firmware support */
+#else
 
 static inline bool fw_get_builtin_firmware(struct firmware *fw,
 					   const char *name, void *buf,
