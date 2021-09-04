@@ -21,12 +21,6 @@ struct module;
 struct device;
 
 #ifdef CONFIG_FW_LOADER_BUILTIN
-struct builtin_fw {
-	char *name;
-	void *data;
-	unsigned long size;
-};
-
 bool firmware_request_builtin(struct firmware *fw, const char *name);
 #else
 static inline bool firmware_request_builtin(struct firmware *fw,
