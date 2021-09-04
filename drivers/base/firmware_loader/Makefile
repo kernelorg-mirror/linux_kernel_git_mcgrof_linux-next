@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 # Makefile for the Linux firmware loader
 
+obj-$(CONFIG_TEST_BUILTIN_FIRMWARE) += test-builtin/
 obj-$(CONFIG_FW_LOADER_BUILTIN) += builtin/
 obj-$(CONFIG_FW_LOADER_USER_HELPER) += fallback_table.o
 obj-$(CONFIG_FW_LOADER)	+= firmware_class.o
