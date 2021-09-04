@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
 obj-y  += main.o
+obj-$(CONFIG_TEST_BUILTIN_FIRMWARE)  += test-builtin-firmware.bin.gen.o
 
 # Create $(fwdir) from $(CONFIG_EXTRA_FIRMWARE_DIR) -- if it doesn't have a
 # leading /, it's relative to $(srctree).

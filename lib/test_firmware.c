@@ -1051,6 +1051,36 @@ out:
 }
 static DEVICE_ATTR_RO(read_firmware);
 
+/*
+ * In order to test this, set CONFIG_EXTRA_FIRMWARE to a firmware file which will
+ * be built into the kernel image. Then echo the name into the
+ * "trigger_request_builtin" sysfs file of this module.
+ */
+static ssize_t trigger_request_builtin_store(struct device *dev,
+					     struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	char *name = test_fw_config->name;
+	struct firmware fw;
+	int rc;
+
+	pr_info("loading builtin '%s'\n", name);
+
+	rc = firmware_request_builtin(&fw, name, NULL, 0);
+	if (!rc) {
+		pr_info("load of '%s' failed\n", name);
+		goto out;
+	}
+
+	pr_info("loaded: %zu\n", fw.size);
+	rc = count;
+
+out:
+
+	return rc;
+}
+static DEVICE_ATTR_WO(trigger_request_builtin);
+
 #define TEST_FW_DEV_ATTR(name)          &dev_attr_##name.attr
 
 static struct attribute *test_dev_attrs[] = {
@@ -1082,6 +1112,7 @@ static struct attribute *test_dev_attrs[] = {
 	TEST_FW_DEV_ATTR(release_all_firmware),
 	TEST_FW_DEV_ATTR(test_result),
 	TEST_FW_DEV_ATTR(read_firmware),
+	TEST_FW_DEV_ATTR(trigger_request_builtin),
 	NULL,
 };
 

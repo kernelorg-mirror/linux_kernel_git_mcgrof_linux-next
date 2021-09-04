@@ -72,7 +72,8 @@ config EXTRA_FIRMWARE
 config EXTRA_FIRMWARE_DIR
 	string "Directory with firmware to be built-in to the kernel"
 	depends on FW_LOADER_BUILTIN
-	default "/lib/firmware"
+	default "/lib/firmware" if !TEST_BUILTIN_FIRMWARE
+	default "drivers/base/firmware_loader/test-builtin" if TEST_BUILTIN_FIRMWARE
 	help
 	  This option specifies the directory which the kernel build system
 	  will use to look for the firmware files which are going to be

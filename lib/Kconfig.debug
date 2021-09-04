@@ -2333,6 +2333,35 @@ config TEST_FIRMWARE
 
 	  If unsure, say N.
 
+config TEST_BUILTIN_FIRMWARE
+	bool "Allow building built-in test firmware"
+	depends on TEST_FIRMWARE
+	select FW_LOADER_BUILTIN
+	help
+	  If enabled, firmware will be built into to the kernel so that
+	  loading it with the test_firmware driver can be tested. Disabling
+	  this will just mean the test firmware scripts won't find any
+	  built-in firmware. Enabling this will make the kernel generate the
+	  file test-builtin-firmware.bin inside local directory
+	  drivers/base/firmware_loader/test-builtin. This file will then
+	  be available whenever the request firmware API is used.
+
+	  Enabling this functionlity essentially overrides the location where
+	  you specify to find built-in firmware, and so should only be enabled
+	  if you don't need to build firmware into your kernel for full
+	  funcionality.
+
+	  This should be disabled on production kernels as otherwise you'll
+	  end up with a test firmware stuck into your final kernel image and
+	  with default built-in firmware support.
+
+	  If unsure, say N.
+
+config TEST_BUILTIN_FIRMWARE_BIN
+	string
+	depends on TEST_BUILTIN_FIRMWARE
+	default "test-builtin-firmware.bin"
+
 config TEST_SYSCTL
 	tristate "sysctl test driver"
 	depends on PROC_SYSCTL
