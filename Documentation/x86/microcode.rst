@@ -6,6 +6,7 @@ The Linux Microcode Loader
 
 :Authors: - Fenghua Yu <fenghua.yu@intel.com>
           - Borislav Petkov <bp@suse.de>
+          - Luis Chamberlain <mcgrof@kernel.org>
 
 The kernel has a x86 microcode loading facility which is supposed to
 provide microcode loading methods in the OS. Potential use cases are
@@ -114,29 +115,39 @@ Builtin microcode
 =================
 
 The loader supports also loading of a builtin microcode supplied through
-the regular builtin firmware method using CONFIG_FW_LOADER_BUILTIN and
-CONFIG_FW_LOADER_BUILTIN_FILES. Only 64-bit is currently supported.
+the regular builtin firmware. The respective CPU loader will only look
+for the appropriate microcode for its respective CPU family.
 
-Here's an example::
+To help assist users with support for this all x86 microcode which is present
+on the linux-firmware git repository can be enabled to be built into the kernel
+using 'make menuconfig'. Although the loader has support to update microcode for
+Intel and AMD processors, only AMD microcode is present on the linux-firmware
+tree at this time, as such you can only take advatange of this if on AMD
+processors. If using Intel processors you wil have to extend the kconfig
+symbol CONFIG_FW_LOADER_BUILTIN_FILES manually at configuration time.
+
+If using AMD processors you can select which processor family you want to
+provide support for. For instance
+
+Here's an example of enabling all AMD microcode to be built into the kernel::
 
   CONFIG_FW_LOADER_BUILTIN=y
-  CONFIG_FW_LOADER_BUILTIN_FILES="intel-ucode/06-3a-09 amd-ucode/microcode_amd_fam15h.bin"
+  CONFIG_FW_LOADER_BUILTIN_FILES=""
   CONFIG_FW_LOADER_BUILTIN_DIR="/lib/firmware"
+  CONFIG_MICROCODE_BUILTIN=y
+  CONFIG_MICROCODE_INTEL=y
+  CONFIG_MICROCODE_AMD=y
+  CONFIG_MICROCODE_BUILTIN_AMD=y
+  CONFIG_MICROCODE_BUILTIN_AMD_DIR="amd-ucode"
+  CONFIG_MICROCODE_BUILTIN_AMD_10H_14H=y
+  CONFIG_MICROCODE_BUILTIN_AMD_15H=y
+  CONFIG_MICROCODE_BUILTIN_AMD_16H=y
+  CONFIG_MICROCODE_BUILTIN_AMD_17H=y
 
-This basically means, you have the following tree structure locally::
+Under this configuration you will have all the latest and greatest
+microcode from linux-firmware available on /lib/firmware.
 
-  /lib/firmware/
-  |-- amd-ucode
-  ...
-  |   |-- microcode_amd_fam15h.bin
-  ...
-  |-- intel-ucode
-  ...
-  |   |-- 06-3a-09
-  ...
-
-so that the build system can find those files and integrate them into
-the final kernel image. The early loader finds them and applies them.
+If using Intel processors adjust CONFIG_FW_LOADER_BUILTIN_FILES manually.
 
 Needless to say, this method is not the most flexible one because it
 requires rebuilding the kernel each time updated microcode from the CPU

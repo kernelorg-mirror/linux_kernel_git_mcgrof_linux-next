@@ -1303,9 +1303,24 @@ config MICROCODE
 	  CONFIG_BLK_DEV_INITRD in order for the loader to be able to scan the
 	  initrd for microcode blobs.
 
-	  In addition, you can build the microcode into the kernel. For that you
-	  need to add the vendor-supplied microcode to the configuration option
-	  CONFIG_FW_LOADER_BUILTIN_FILES
+config MICROCODE_BUILTIN
+	bool "CPU microcode update using built-in firmware"
+	default y
+	depends on MICROCODE
+	help
+	  If you say Y here, you will be able to use the kernel's builtin
+	  firmware functionality to try to update your CPU's microcode.
+	  Disabling this will disallow this functionality from your kernel.
+	  If enabled you will also be allowed to also select microcode to
+	  build into the kernel for microcode present on the linux-firmare
+	  git tree. If microcode files are not present on linux-firmware
+	  you will have to manually augment the out of tree vendor-supplied
+	  microcode to the configuration option CONFIG_FW_LOADER_BUILTIN_FILES.
+	  Currently only AMD provides updates to microcode into the
+	  linux-firmware git tree.
+
+	  You should say N here if you are not actually going to use this
+	  functionality.
 
 config MICROCODE_INTEL
 	bool "Intel microcode loading support"
@@ -1325,6 +1340,75 @@ config MICROCODE_AMD
 	help
 	  If you select this option, microcode patch loading support for AMD
 	  processors will be enabled.
+
+if MICROCODE_BUILTIN
+
+config MICROCODE_BUILTIN_AMD
+	bool "Enable you to select AMD microcode to build into the kernel"
+	depends on MICROCODE_AMD
+	default y
+
+config MICROCODE_BUILTIN_AMD_DIR
+	string
+	depends on MICROCODE_BUILTIN_AMD
+	default "amd-ucode"
+
+config MICROCODE_BUILTIN_AMD_10H_14H
+	bool "Build in microcode for AMD Families 10h ~ 14h Processors"
+	depends on MICROCODE_BUILTIN_AMD
+	help
+	  If enabled at build time we will look inside the directory
+	  CONFIG_FW_LOADER_BUILTIN_DIR/CONFIG_MICROCODE_BUILTIN_AMD_DIR/
+	  microcode_amd.bin which is used for updating the microcode to the
+	  AMD Families 10h ~ 14h Processors. Enabling this does not mean the
+	  microcode updater will use this file, it just means that your kernel
+	  will have support to allow the microcode update code to use this file
+	  from the kernel if the microcode update code decides this is the
+	  right file for your CPU.
+	  The file is expected to have md5sum: 55ae79b82cbfddcf7142058be3c9ec2d
+
+config MICROCODE_BUILTIN_AMD_15H
+	bool "Build in microcode for AMD Families 15h Processors"
+	depends on MICROCODE_BUILTIN_AMD
+	help
+	  If enabled at build time we will look inside the directory
+	  CONFIG_FW_LOADER_BUILTIN_DIR/CONFIG_MICROCODE_BUILTIN_AMD_DIR/
+	  microcode_amd_fam15h.bin which is used for updating the microcode to
+	  the AMD Families 15h Processors. Enabling this does not mean the
+	  microcode updater will use this file, it just means that your kernel
+	  will have support to allow the microcode update code to use this file
+	  from the kernel if the microcode update code decides this is the
+	  right file for your CPU.
+	  The file is expected to have md5sum: 3bdedb4466186a79c469f62120f6d7bb
+
+config MICROCODE_BUILTIN_AMD_16H
+	bool "Build in microcode for AMD Families 16h Processors"
+	depends on MICROCODE_BUILTIN_AMD
+	help
+	  If enabled at build time we will look inside the directory
+	  CONFIG_FW_LOADER_BUILTIN_DIR/CONFIG_MICROCODE_BUILTIN_AMD_DIR/
+	  microcode_amd_fam16h.bin which is used for updating the microcode to
+	  the AMD Families 16h Processors. Enabling this does not mean the
+	  microcode updater will use this file, it just means that your kernel
+	  will have support to allow the microcode update code to use this file
+	  from the kernel if the microcode update code decides this is the
+	  right file for your CPU.
+	  The file is expected to have md5sum: 6a47a6393c52ddfc0b5b044efc076a77
+
+config MICROCODE_BUILTIN_AMD_17H
+	bool "Build in microcode for AMD Families 17h Processors"
+	depends on MICROCODE_BUILTIN_AMD
+	help
+	  If enabled at build time we will look inside the directory
+	  CONFIG_FW_LOADER_BUILTIN_DIR/CONFIG_MICROCODE_BUILTIN_AMD_DIR/
+	  microcode_amd_fam17h.bin which is used for updating the microcode to
+	  the AMD Families 17h Processors. Enabling this does not mean the
+	  microcode updater will use this file, it just means that your kernel
+	  will have support to allow the microcode update code to use this file
+	  from the kernel if the microcode update code decides this is the
+	  right file for your CPU.
+	  The file is expected to have md5sum: 60f18b6d7fa3d1231b27cc339c173c8c
+endif
 
 config MICROCODE_OLD_INTERFACE
 	bool "Ancient loading interface (DEPRECATED)"

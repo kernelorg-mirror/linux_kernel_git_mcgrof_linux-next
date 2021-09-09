@@ -453,6 +453,7 @@ static void save_mc_for_early(struct ucode_cpu_info *uci, u8 *mc, unsigned int s
 	mutex_unlock(&x86_cpu_microcode_mutex);
 }
 
+#ifdef MICROCODE_BUILTIN
 static bool load_builtin_intel_microcode(struct cpio_data *cp)
 {
 	unsigned int eax = 1, ebx, ecx = 0, edx;
@@ -475,6 +476,12 @@ static bool load_builtin_intel_microcode(struct cpio_data *cp)
 
 	return false;
 }
+#else
+static bool load_builtin_intel_microcode(struct cpio_data *cp)
+{
+	return false;
+}
+#endif
 
 /*
  * Print ucode update info.

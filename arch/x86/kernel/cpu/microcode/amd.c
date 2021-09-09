@@ -454,6 +454,7 @@ apply_microcode_early_amd(u32 cpuid_1_eax, void *ucode, size_t size, bool save_p
 	return ret;
 }
 
+#ifdef MICROCODE_BUILTIN
 static bool get_builtin_microcode(struct cpio_data *cp, unsigned int family)
 {
 	char fw_name[36] = "amd-ucode/microcode_amd.bin";
@@ -474,6 +475,12 @@ static bool get_builtin_microcode(struct cpio_data *cp, unsigned int family)
 
 	return false;
 }
+#else
+static bool get_builtin_microcode(struct cpio_data *cp, unsigned int family)
+{
+	return false;
+}
+#endif
 
 static void __load_ucode_amd(unsigned int cpuid_1_eax, struct cpio_data *ret)
 {
