@@ -81,10 +81,6 @@ extern void __init files_maxfiles_init(void);
 extern unsigned long get_max_files(void);
 extern unsigned int sysctl_nr_open;
 extern struct inodes_stat_t inodes_stat;
-extern int sysctl_protected_symlinks;
-extern int sysctl_protected_hardlinks;
-extern int sysctl_protected_fifos;
-extern int sysctl_protected_regular;
 
 typedef __kernel_rwf_t rwf_t;
 
