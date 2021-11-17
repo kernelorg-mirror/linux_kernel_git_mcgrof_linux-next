@@ -2880,11 +2880,11 @@ static struct ctl_table sysctl_base_table[] = {
 	{ }
 };
 
-int __init sysctl_init(void)
+int __register_sysctl_base(struct ctl_table *base_table)
 {
 	struct ctl_table_header *hdr;
 
-	hdr = register_sysctl_table(sysctl_base_table);
+	hdr = register_sysctl_table(base_table);
 	kmemleak_not_leak(hdr);
 	return 0;
 }
