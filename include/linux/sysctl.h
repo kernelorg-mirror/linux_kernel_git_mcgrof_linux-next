@@ -219,6 +219,12 @@ extern void __register_sysctl_init(const char *path, struct ctl_table *table,
 				 const char *table_name);
 #define register_sysctl_init(path, table) __register_sysctl_init(path, table, #table)
 void do_sysctl_args(void);
+int do_proc_douintvec(struct ctl_table *table, int write,
+		      void *buffer, size_t *lenp, loff_t *ppos,
+		      int (*conv)(unsigned long *lvalp,
+				  unsigned int *valp,
+				  int write, void *data),
+		      void *data);
 
 extern int pwrsw_enabled;
 extern int unaligned_enabled;
