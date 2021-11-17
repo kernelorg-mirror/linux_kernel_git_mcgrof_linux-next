@@ -208,8 +208,6 @@ extern int sysctl_init(void);
 extern void __register_sysctl_init(const char *path, struct ctl_table *table,
 				 const char *table_name);
 #define register_sysctl_init(path, table) __register_sysctl_init(path, table, #table)
-extern struct ctl_table_header *register_sysctl_mount_point(const char *path);
-
 void do_sysctl_args(void);
 
 extern int pwrsw_enabled;
@@ -223,11 +221,6 @@ extern struct ctl_table sysctl_mount_point[];
 static inline struct ctl_table_header *register_sysctl_table(struct ctl_table * table)
 {
 	return NULL;
-}
-
-static struct sysctl_header *register_sysctl_mount_point(const char *path)
-{
-	return NULL
 }
 
 static inline struct ctl_table_header *register_sysctl_paths(
