@@ -81,7 +81,6 @@ extern void __init files_maxfiles_init(void);
 extern unsigned long get_max_files(void);
 extern unsigned int sysctl_nr_open;
 extern struct inodes_stat_t inodes_stat;
-extern int leases_enable, lease_break_time;
 extern int sysctl_protected_symlinks;
 extern int sysctl_protected_hardlinks;
 extern int sysctl_protected_fifos;
