@@ -34,6 +34,16 @@ struct ctl_table sysctl_mount_point[] = {
 	{ }
 };
 
+/*
+ * Used to create permanently empty directories to serve as mount points.
+ * There are some subtle but important permission checks this allows in the
+ * case of unprivileged mounts.
+ */
+struct ctl_table_header *register_sysctl_mount_point(const char *path)
+{
+	return register_sysctl(path, sysctl_mount_point);
+}
+
 static bool is_empty_dir(struct ctl_table_header *head)
 {
 	return head->ctl_table[0].child == sysctl_mount_point;
