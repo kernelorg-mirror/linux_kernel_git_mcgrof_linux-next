@@ -65,6 +65,14 @@ static void nvme_pt_task_cb(struct io_uring_cmd *ioucmd)
 	}
 	kfree(pdu->meta);
 
+	if (ioucmd->flags & IO_URING_F_UCMD_INDIRECT) {
+		struct nvme_passthru_cmd64 __user *ptcmd64 = ioucmd->cmd;
+		u64 result = le64_to_cpu(nvme_req(req)->result.u64);
+
+		if (put_user(result, &ptcmd64->result))
+			status = -EFAULT;
+	}
+
 	io_uring_cmd_done(ioucmd, status);
 }
 
@@ -143,6 +151,13 @@ static inline bool nvme_is_fixedb_passthru(struct io_uring_cmd *ioucmd)
 	return ((ioucmd) && (ioucmd->flags & IO_URING_F_UCMD_FIXEDBUFS));
 }
 
+static inline bool is_inline_rw(struct io_uring_cmd *ioucmd, struct nvme_command *cmd)
+{
+	return ((ioucmd->flags & IO_URING_F_UCMD_INDIRECT) ||
+			(cmd->common.opcode == nvme_cmd_write ||
+			 cmd->common.opcode == nvme_cmd_read));
+}
+
 static int nvme_submit_user_cmd(struct request_queue *q,
 		struct nvme_command *cmd, u64 ubuffer,
 		unsigned bufflen, void __user *meta_buffer, unsigned meta_len,
@@ -193,8 +208,7 @@ static int nvme_submit_user_cmd(struct request_queue *q,
 		}
 	}
 	if (ioucmd) { /* async dispatch */
-		if (cmd->common.opcode == nvme_cmd_write ||
-				cmd->common.opcode == nvme_cmd_read) {
+		if (is_inline_rw(ioucmd, cmd)) {
 			if (bio && is_polling_enabled(ioucmd, req)) {
 				ioucmd->bio = bio;
 				bio->bi_opf |= REQ_POLLED;
@@ -204,7 +218,7 @@ static int nvme_submit_user_cmd(struct request_queue *q,
 			blk_execute_rq_nowait(req, 0, nvme_end_async_pt);
 			return 0;
 		} else {
-			/* support only read and write for now. */
+			/* support only read and write for inline */
 			ret = -EINVAL;
 			goto out_meta;
 		}
@@ -372,7 +386,14 @@ static int nvme_user_cmd64(struct nvme_ctrl *ctrl, struct nvme_ns *ns,
 	} else {
 		if (ioucmd->cmd_len != sizeof(struct nvme_passthru_cmd64))
 			return -EINVAL;
-		cptr = (struct nvme_passthru_cmd64 *)ioucmd->cmd;
+		if (ioucmd->flags & IO_URING_F_UCMD_INDIRECT) {
+			ucmd = (struct nvme_passthru_cmd64 __user *)ioucmd->cmd;
+			if (copy_from_user(&cmd, ucmd, sizeof(cmd)))
+				return -EFAULT;
+			cptr = &cmd;
+		} else {
+			cptr = (struct nvme_passthru_cmd64 *)ioucmd->cmd;
+		}
 	}
 	if (cptr->flags & NVME_HIPRI)
 		rq_flags |= REQ_POLLED;
