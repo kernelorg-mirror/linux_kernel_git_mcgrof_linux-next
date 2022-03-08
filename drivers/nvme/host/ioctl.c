@@ -37,6 +37,12 @@ static struct nvme_uring_cmd_pdu *nvme_uring_cmd_pdu(struct io_uring_cmd *ioucmd
 	return (struct nvme_uring_cmd_pdu *)&ioucmd->pdu;
 }
 
+static inline bool is_polling_enabled(struct io_uring_cmd *ioucmd,
+				      struct request *req)
+{
+	return (ioucmd->flags & IO_URING_F_UCMD_POLLED) && blk_rq_is_poll(req);
+}
+
 static void nvme_pt_task_cb(struct io_uring_cmd *ioucmd)
 {
 	struct nvme_uring_cmd_pdu *pdu = nvme_uring_cmd_pdu(ioucmd);
@@ -71,8 +77,17 @@ static void nvme_end_async_pt(struct request *req, blk_status_t err)
 
 	pdu->req = req;
 	req->bio = bio;
-	/* this takes care of setting up task-work */
-	io_uring_cmd_complete_in_task(ioucmd, nvme_pt_task_cb);
+
+	/*
+	 * IO can be completed directly (i.e. without task work) if we are
+	 * polling and in the task context already
+	 */
+	if (is_polling_enabled(ioucmd, req)) {
+		nvme_pt_task_cb(ioucmd);
+	} else {
+		/* this takes care of setting up task-work */
+		io_uring_cmd_complete_in_task(ioucmd, nvme_pt_task_cb);
+	}
 }
 
 static void nvme_setup_uring_cmd_data(struct request *rq,
@@ -180,6 +195,10 @@ static int nvme_submit_user_cmd(struct request_queue *q,
 	if (ioucmd) { /* async dispatch */
 		if (cmd->common.opcode == nvme_cmd_write ||
 				cmd->common.opcode == nvme_cmd_read) {
+			if (bio && is_polling_enabled(ioucmd, req)) {
+				ioucmd->bio = bio;
+				bio->bi_opf |= REQ_POLLED;
+			}
 			nvme_setup_uring_cmd_data(req, ioucmd, meta, meta_buffer,
 					meta_len);
 			blk_execute_rq_nowait(req, 0, nvme_end_async_pt);
@@ -505,6 +524,32 @@ int nvme_ns_chr_async_cmd(struct io_uring_cmd *ioucmd)
 	return nvme_ns_async_ioctl(ns, ioucmd);
 }
 
+int nvme_iopoll(struct kiocb *kiocb, struct io_comp_batch *iob,
+		unsigned int flags)
+{
+	struct bio *bio = NULL;
+	struct nvme_ns *ns = NULL;
+	struct request_queue *q = NULL;
+	int ret = 0;
+
+	rcu_read_lock();
+	bio = READ_ONCE(kiocb->private);
+	ns = container_of(file_inode(kiocb->ki_filp)->i_cdev, struct nvme_ns,
+			  cdev);
+	q = ns->queue;
+	/*
+	 * bio and driver_cb are a part of the same union inside io_uring_cmd
+	 * struct. If driver is loaded without poll queues, completion will be
+	 * IRQ based and driver_cb is populated. We do not want to treat that
+	 * as bio and get into troubles. Avoid this by checking if queue is
+	 * polled and bail out if not.
+	 */
+	if ((test_bit(QUEUE_FLAG_POLL, &q->queue_flags)) && bio && bio->bi_bdev)
+		ret = bio_poll(bio, iob, flags);
+	rcu_read_unlock();
+	return ret;
+}
+
 #ifdef CONFIG_NVME_MULTIPATH
 static int nvme_ns_head_ctrl_ioctl(struct nvme_ns *ns, unsigned int cmd,
 		void __user *argp, struct nvme_ns_head *head, int srcu_idx)
@@ -582,6 +627,36 @@ long nvme_ns_head_chr_ioctl(struct file *file, unsigned int cmd,
 
 	ret = nvme_ns_ioctl(ns, cmd, argp);
 out_unlock:
+	srcu_read_unlock(&head->srcu, srcu_idx);
+	return ret;
+}
+
+int nvme_ns_head_iopoll(struct kiocb *kiocb, struct io_comp_batch *iob,
+			unsigned int flags)
+{
+	struct bio *bio = NULL;
+	struct request_queue *q = NULL;
+	struct cdev *cdev = file_inode(kiocb->ki_filp)->i_cdev;
+	struct nvme_ns_head *head = container_of(cdev, struct nvme_ns_head, cdev);
+	int srcu_idx = srcu_read_lock(&head->srcu);
+	struct nvme_ns *ns = nvme_find_path(head);
+	int ret = -EWOULDBLOCK;
+
+	if (ns) {
+		bio = READ_ONCE(kiocb->private);
+		q = ns->queue;
+		/*
+		 * bio and driver_cb are part of same union inside io_uring_cmd
+		 * struct. If driver is loaded without poll queues, completion
+		 * will be IRQ based and driver_cb is populated. We do not want
+		 * to treat that as bio and get into troubles. Avoid this by
+		 * checking if queue is polled, and bail out if not.
+		 */
+		if ((test_bit(QUEUE_FLAG_POLL, &q->queue_flags)) && bio &&
+		    bio->bi_bdev)
+			ret = bio_poll(bio, iob, flags);
+	}
+
 	srcu_read_unlock(&head->srcu, srcu_idx);
 	return ret;
 }
