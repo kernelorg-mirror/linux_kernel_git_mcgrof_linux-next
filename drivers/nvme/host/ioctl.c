@@ -159,7 +159,7 @@ static int nvme_submit_user_cmd(struct request_queue *q,
 	if (ubuffer && bufflen) {
 		if (likely(nvme_is_fixedb_passthru(ioucmd)))
 			ret = blk_rq_map_user_fixedb(q, req, ubuffer, bufflen,
-					GFP_KERNEL, ioucmd);
+					&nvme_bio_pool, ioucmd);
 		else
 			ret = blk_rq_map_user(q, req, NULL, nvme_to_user_ptr(ubuffer),
 					bufflen, GFP_KERNEL);
