@@ -10,6 +10,7 @@ enum io_uring_cmd_flags {
 	IO_URING_F_UNLOCKED		= 2,
 	IO_URING_F_UCMD_FIXEDBUFS	= 4,
 	IO_URING_F_UCMD_POLLED		= 8,
+	IO_URING_F_UCMD_INDIRECT	= 16,
 	/* int's last bit, sign checks are usually faster than a bit test */
 	IO_URING_F_NONBLOCK		= INT_MIN,
 };

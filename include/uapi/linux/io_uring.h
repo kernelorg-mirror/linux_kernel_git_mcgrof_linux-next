@@ -47,6 +47,7 @@ struct io_uring_sqe {
 		__u32		rename_flags;
 		__u32		unlink_flags;
 		__u32		hardlink_flags;
+		__u32		uring_cmd_flags;
 	};
 	__u64	user_data;	/* data to be passed back at completion time */
 	/* pack this to avoid bogus arm OABI complaints */
@@ -197,6 +198,11 @@ enum {
 #define IORING_POLL_ADD_MULTI	(1U << 0)
 #define IORING_POLL_UPDATE_EVENTS	(1U << 1)
 #define IORING_POLL_UPDATE_USER_DATA	(1U << 2)
+
+/*
+ * sqe->uring_cmd_flags
+ */
+#define IORING_URING_CMD_INDIRECT	(1U << 0)
 
 /*
  * IO completion data structure (Completion Queue Entry)

@@ -4189,8 +4189,12 @@ static int io_uring_cmd_prep(struct io_kiocb *req,
 {
 	struct io_ring_ctx *ctx = req->ctx;
 	struct io_uring_cmd *ioucmd = &req->uring_cmd;
+	u32 ucmd_flags = READ_ONCE(sqe->uring_cmd_flags);
 
-	if (!req->file->f_op->async_cmd || !(req->ctx->flags & IORING_SETUP_SQE128))
+	if (!req->file->f_op->async_cmd)
+		return -EOPNOTSUPP;
+	if (!(req->ctx->flags & IORING_SETUP_SQE128) &&
+			!(ucmd_flags & IORING_URING_CMD_INDIRECT))
 		return -EOPNOTSUPP;
 	if (req->ctx->flags & IORING_SETUP_IOPOLL) {
 		ioucmd->flags = IO_URING_F_UCMD_POLLED;
@@ -4206,7 +4210,12 @@ static int io_uring_cmd_prep(struct io_kiocb *req,
 		ioucmd->flags |= IO_URING_F_UCMD_FIXEDBUFS;
 	}
 
-	ioucmd->cmd = (void *) &sqe->cmd;
+	if (ucmd_flags & IORING_URING_CMD_INDIRECT) {
+		ioucmd->flags |= IO_URING_F_UCMD_INDIRECT;
+		ioucmd->cmd = (void *) sqe->cmd;
+	} else {
+		ioucmd->cmd = (void *) &sqe->cmd;
+	}
 	ioucmd->cmd_op = READ_ONCE(sqe->cmd_op);
 	ioucmd->cmd_len = READ_ONCE(sqe->cmd_len);
 	return 0;
