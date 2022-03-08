@@ -2664,7 +2664,20 @@ static int io_do_iopoll(struct io_ring_ctx *ctx, bool force_nonspin)
 		if (READ_ONCE(req->iopoll_completed))
 			break;
 
-		ret = kiocb->ki_filp->f_op->iopoll(kiocb, &iob, poll_flags);
+		if (req->opcode == IORING_OP_URING_CMD ||
+		    req->opcode == IORING_OP_URING_CMD_FIXED) {
+			/* uring_cmd structure does not contain kiocb struct */
+			struct kiocb kiocb_uring_cmd;
+
+			kiocb_uring_cmd.private = req->uring_cmd.bio;
+			kiocb_uring_cmd.ki_filp = req->uring_cmd.file;
+			ret = req->uring_cmd.file->f_op->iopoll(&kiocb_uring_cmd,
+			      &iob, poll_flags);
+		} else {
+			ret = kiocb->ki_filp->f_op->iopoll(kiocb, &iob,
+							   poll_flags);
+		}
+
 		if (unlikely(ret < 0))
 			return ret;
 		else if (ret)
@@ -2777,6 +2790,15 @@ static int io_iopoll_check(struct io_ring_ctx *ctx, long min)
 			    wq_list_empty(&ctx->iopoll_list))
 				break;
 		}
+
+		/*
+		 * In some scenarios, completion callback has been queued up to be
+		 * completed in-task context but polling happens in the same task
+		 * not giving a chance for the completion callback to complete.
+		 */
+		if (current->task_works)
+			io_run_task_work();
+
 		ret = io_do_iopoll(ctx, !min);
 		if (ret < 0)
 			break;
@@ -4136,6 +4158,14 @@ static int io_linkat(struct io_kiocb *req, unsigned int issue_flags)
 	return 0;
 }
 
+static void io_complete_uring_cmd_iopoll(struct io_kiocb *req, long res)
+{
+	WRITE_ONCE(req->result, res);
+	/* order with io_iopoll_complete() checking ->result */
+	smp_wmb();
+	WRITE_ONCE(req->iopoll_completed, 1);
+}
+
 /*
  * Called by consumers of io_uring_cmd, if they originally returned
  * -EIOCBQUEUED upon receiving the command.
@@ -4146,7 +4176,11 @@ void io_uring_cmd_done(struct io_uring_cmd *ioucmd, ssize_t ret)
 
 	if (ret < 0)
 		req_set_fail(req);
-	io_req_complete(req, ret);
+
+	if (req->uring_cmd.flags & IO_URING_F_UCMD_POLLED)
+		io_complete_uring_cmd_iopoll(req, ret);
+	else
+		io_req_complete(req, ret);
 }
 EXPORT_SYMBOL_GPL(io_uring_cmd_done);
 
@@ -4158,15 +4192,18 @@ static int io_uring_cmd_prep(struct io_kiocb *req,
 
 	if (!req->file->f_op->async_cmd || !(req->ctx->flags & IORING_SETUP_SQE128))
 		return -EOPNOTSUPP;
-	if (req->ctx->flags & IORING_SETUP_IOPOLL)
-		return -EOPNOTSUPP;
+	if (req->ctx->flags & IORING_SETUP_IOPOLL) {
+		ioucmd->flags = IO_URING_F_UCMD_POLLED;
+		ioucmd->bio = NULL;
+		req->iopoll_completed = 0;
+	} else {
+		ioucmd->flags = 0;
+	}
 	if (req->opcode == IORING_OP_URING_CMD_FIXED) {
 		req->imu = NULL;
 		io_req_set_rsrc_node(req, ctx);
 		req->buf_index = READ_ONCE(sqe->buf_index);
-		ioucmd->flags = IO_URING_F_UCMD_FIXEDBUFS;
-	} else {
-		ioucmd->flags = 0;
+		ioucmd->flags |= IO_URING_F_UCMD_FIXEDBUFS;
 	}
 
 	ioucmd->cmd = (void *) &sqe->cmd;

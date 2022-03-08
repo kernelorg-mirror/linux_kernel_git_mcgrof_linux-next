@@ -9,6 +9,7 @@ enum io_uring_cmd_flags {
 	IO_URING_F_COMPLETE_DEFER	= 1,
 	IO_URING_F_UNLOCKED		= 2,
 	IO_URING_F_UCMD_FIXEDBUFS	= 4,
+	IO_URING_F_UCMD_POLLED		= 8,
 	/* int's last bit, sign checks are usually faster than a bit test */
 	IO_URING_F_NONBLOCK		= INT_MIN,
 };
@@ -16,8 +17,12 @@ enum io_uring_cmd_flags {
 struct io_uring_cmd {
 	struct file     *file;
 	void            *cmd;
-	/* for irq-completion - if driver requires doing stuff in task-context*/
-	void (*driver_cb)(struct io_uring_cmd *cmd);
+	union {
+		void *bio; /* used for polled completion */
+
+		/* for irq-completion - if driver requires doing stuff in task-context*/
+		void (*driver_cb)(struct io_uring_cmd *cmd);
+	};
 	u32             flags;
 	u32             cmd_op;
 	u16		cmd_len;
