@@ -231,6 +231,20 @@ static int dm_revalidate_zones(struct mapped_device *md, struct dm_table *t)
 	struct request_queue *q = md->queue;
 	unsigned int noio_flag;
 	int ret;
+	struct block_device *bdev = md->disk->part0;
+	unsigned int zone_sectors, zone_size;
+	char b[BDEVNAME_SIZE];
+
+	zone_sectors = bdev_zone_sectors(bdev);
+	zone_size = zone_sectors << SECTOR_SHIFT;
+
+	if (!is_power_of_2(zone_size)) {
+		DMWARN("%s: %s only power of two zone size supported (%u)\n",
+		       dm_device_name(md),
+		       bdevname(bdev, b),
+		       zone_size);
+		return 1;
+	}
 
 	/*
 	 * Check if something changed. If yes, cleanup the current resources
