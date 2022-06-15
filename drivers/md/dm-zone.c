@@ -208,6 +208,11 @@ static int dm_zone_revalidate_cb(struct blk_zone *zone, unsigned int idx,
 		}
 		md->zwp_offset[idx] = dm_get_zone_wp_offset(zone);
 
+		if (bdev_zone_sectors(disk->part0) != zone->len) {
+			blk_queue_chunk_sectors(md->queue, zone->len);
+			disk->nr_zones = bdev_nr_zones(md->disk->part0);
+		}
+
 		break;
 	default:
 		DMERR("Invalid zone type 0x%x at sectors %llu",
@@ -302,6 +307,9 @@ int dm_set_zones_restrictions(struct dm_table *t, struct request_queue *q)
 	if (dm_table_supports_zone_append(t)) {
 		clear_bit(DMF_EMULATE_ZONE_APPEND, &md->flags);
 		dm_cleanup_zoned_dev(md);
+
+		if (!is_power_of_2(bdev_zone_sectors(md->disk->part0)))
+			goto revalidate_zones;
 		return 0;
 	}
 
@@ -313,6 +321,7 @@ int dm_set_zones_restrictions(struct dm_table *t, struct request_queue *q)
 	if (!get_capacity(md->disk))
 		return 0;
 
+revalidate_zones:
 	return dm_revalidate_zones(md, t);
 }
 
