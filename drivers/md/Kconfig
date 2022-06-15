@@ -518,6 +518,15 @@ config DM_FLAKEY
 	help
 	 A target that intermittently fails I/O for debugging purposes.
 
+config DM_ZONED_NPO2
+	tristate "Zoned non power of 2 target"
+	depends on BLK_DEV_DM
+	depends on BLK_DEV_ZONED
+	help
+	A target that converts a zoned device with non power of 2 zone size to
+	be power of 2. This is done by introducing gaps in between the zone
+	capacity and the power of 2 zone size.
+
 config DM_VERITY
 	tristate "Verity target support"
 	depends on BLK_DEV_DM
