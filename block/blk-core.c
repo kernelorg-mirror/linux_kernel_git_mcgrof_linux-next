@@ -559,6 +559,11 @@ static int blk_partition_remap(struct bio *bio)
 	return 0;
 }
 
+static inline bool bio_sector_zone_start(struct bio *bio)
+{
+	return bdev_is_zone_start(bio->bi_bdev, bio->bi_iter.bi_sector);
+}
+
 /*
  * Check write append to a zoned block device.
  */
@@ -572,8 +577,7 @@ static inline blk_status_t blk_check_zone_append(struct request_queue *q,
 		return BLK_STS_NOTSUPP;
 
 	/* The bio sector must point to the start of a sequential zone */
-	if (bio->bi_iter.bi_sector & (bdev_zone_sectors(bio->bi_bdev) - 1) ||
-	    !bio_zone_is_seq(bio))
+	if (!bio_sector_zone_start(bio) || !bio_zone_is_seq(bio))
 		return BLK_STS_IOERR;
 
 	/*
