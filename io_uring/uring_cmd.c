@@ -3,6 +3,7 @@
 #include <linux/errno.h>
 #include <linux/file.h>
 #include <linux/io_uring.h>
+#include <linux/security.h>
 
 #include <uapi/linux/io_uring.h>
 
@@ -81,6 +82,10 @@ int io_uring_cmd(struct io_kiocb *req, unsigned int issue_flags)
 	struct io_ring_ctx *ctx = req->ctx;
 	struct file *file = req->file;
 	int ret;
+
+	ret = security_uring_cmd(ioucmd);
+	if (ret)
+		return ret;
 
 	if (!req->file->f_op->uring_cmd)
 		return -EOPNOTSUPP;
