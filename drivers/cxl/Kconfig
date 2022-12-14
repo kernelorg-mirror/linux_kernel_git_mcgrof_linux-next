@@ -49,6 +49,11 @@ config CXL_MEM_RAW_COMMANDS
 
 	  If developing CXL hardware or the driver say Y, otherwise say N.
 
+config CXL_ACPI_BUILTIN
+	bool
+	depends on CXL_ACPI
+	default y
+
 config CXL_ACPI
 	tristate "CXL ACPI: Platform Support"
 	depends on ACPI
@@ -128,5 +133,23 @@ config CXL_REGION_INVALIDATION_TEST
 
 	  If unsure, or if this kernel is meant for production environments,
 	  say N.
+
+config CXL_DEBUG_MOCK_ACPI
+	bool
+	default y
+	depends on CXL_DEBUG_MOCK
+	depends on CXL_ACPI
+
+config CXL_DEBUG_MOCK
+	bool "Enables CXL debug mocking framework"
+	depends on CXL_BUS
+	depends on CXL_BUS!=y
+	depends on CXL_ACPI!=y
+	depends on CXL_PMEM!=y
+	select TEST_CXL
+	help
+	  Enables CXL debugging mocking facilities. Enable this if you want
+	  to test CXL with the ability to mock topologies otherwise not easily
+	  possible with a real system or qemu.
 
 endif

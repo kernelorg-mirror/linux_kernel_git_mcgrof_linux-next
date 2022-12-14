@@ -309,19 +309,6 @@ err_name:
 	return -ENOMEM;
 }
 
-__mock struct acpi_device *to_cxl_host_bridge(struct device *host,
-					      struct device *dev)
-{
-	struct acpi_device *adev = to_acpi_device(dev);
-
-	if (!acpi_pci_find_root(adev->handle))
-		return NULL;
-
-	if (strcmp(acpi_device_hid(adev), "ACPI0016") == 0)
-		return adev;
-	return NULL;
-}
-
 /*
  * A host bridge is a dport to a CFMWS decode and it is a uport to the
  * dport (PCIe Root Ports) in the host bridge.

@@ -2104,6 +2104,14 @@ config CPUMASK_KUNIT_TEST
 
 	  If unsure, say N.
 
+config TEST_CXL
+	tristate "Let's you load a CXL mock driver"
+	depends on CXL_BUS
+	depends on CXL_DEBUG_MOCK
+	default n
+	help
+	  Enable this to allow you to compile a CXL mock driver.
+
 config TEST_LIST_SORT
 	tristate "Linked list sorting test" if !KUNIT_ALL_TESTS
 	depends on KUNIT

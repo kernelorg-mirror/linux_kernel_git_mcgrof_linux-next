@@ -693,12 +693,17 @@ static inline struct cxl_pmem_region *to_cxl_pmem_region(struct device *dev)
 }
 #endif
 
-/*
- * Unit test builds overrides this to __weak, find the 'strong' version
- * of these symbols in tools/testing/cxl/.
- */
-#ifndef __mock
-#define __mock static
-#endif
+#ifdef CONFIG_CXL_ACPI_BUILTIN
+
+struct acpi_device *__to_cxl_host_bridge(struct device *host, struct device *dev);
+
+#ifdef CONFIG_CXL_DEBUG_MOCK_ACPI
+struct acpi_device *mock_to_cxl_host_bridge(struct device *host, struct device *dev);
+#define to_cxl_host_bridge mock_to_cxl_host_bridge
+#else
+#define to_cxl_host_bridge __to_cxl_host_bridge
+#endif /* CONFIG_CXL_DEBUG_MOCK_ACPI */
+
+#endif /* CONFIG_CXL_ACPI_BUILTIN */
 
 #endif /* __CXL_H__ */

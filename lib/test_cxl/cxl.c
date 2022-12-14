@@ -10,7 +10,6 @@
 #include <linux/mm.h>
 #include <cxlmem.h>
 
-#include "../watermark.h"
 #include "mock.h"
 
 static int interleave_arithmetic;
@@ -1120,12 +1119,6 @@ static void cxl_single_exit(void)
 static __init int cxl_test_init(void)
 {
 	int rc, i;
-
-	cxl_acpi_test();
-	cxl_core_test();
-	cxl_mem_test();
-	cxl_pmem_test();
-	cxl_port_test();
 
 	register_cxl_mock_ops(&cxl_mock_ops);
 
