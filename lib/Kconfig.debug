@@ -2108,7 +2108,7 @@ config TEST_CXL
 	tristate "Let's you load a CXL mock driver"
 	depends on CXL_BUS
 	depends on CXL_DEBUG_MOCK
-	default n
+	default m
 	help
 	  Enable this to allow you to compile a CXL mock driver.
 

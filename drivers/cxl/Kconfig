@@ -3,6 +3,7 @@ menuconfig CXL_BUS
 	tristate "CXL (Compute Express Link) Devices Support"
 	depends on PCI
 	select PCI_DOE
+	default m
 	help
 	  CXL is a bus that is electrically compatible with PCI Express, but
 	  layers three protocols on that signalling (CXL.io, CXL.cache, and
@@ -146,6 +147,7 @@ config CXL_DEBUG_MOCK
 	depends on CXL_BUS!=y
 	depends on CXL_ACPI!=y
 	depends on CXL_PMEM!=y
+	default y
 	select TEST_CXL
 	help
 	  Enables CXL debugging mocking facilities. Enable this if you want
