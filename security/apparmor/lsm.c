@@ -583,6 +583,7 @@ static int apparmor_sb_mount(const char *dev_name, const struct path *path,
 		flags &= ~MS_MGC_MSK;
 
 	flags &= ~AA_MS_IGNORE_MASK;
+	flags &= ~AA_SB_IGNORE_MASK;
 
 	label = __begin_current_label_crit_section();
 	if (!unconfined(label)) {

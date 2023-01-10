@@ -74,7 +74,7 @@ static void audit_mnt_flags(struct audit_buffer *ab, unsigned long flags)
 		audit_log_format(ab, ", iversion");
 	if (flags & MS_STRICTATIME)
 		audit_log_format(ab, ", strictatime");
-	if (flags & MS_NOUSER)
+	if (flags & SB_NOUSER)
 		audit_log_format(ab, ", nouser");
 }
 

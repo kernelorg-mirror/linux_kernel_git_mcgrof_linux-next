@@ -23,7 +23,8 @@
 #define AA_AUDIT_DATA		0x40
 #define AA_MNT_CONT_MATCH	0x40
 
-#define AA_MS_IGNORE_MASK (MS_KERNMOUNT | MS_NOSEC | MS_ACTIVE | MS_BORN)
+#define AA_MS_IGNORE_MASK (MS_KERNMOUNT)
+#define AA_SB_IGNORE_MASK (SB_NOSEC | SB_ACTIVE | SB_BORN)
 
 int aa_remount(struct aa_label *label, const struct path *path,
 	       unsigned long flags, void *data);
