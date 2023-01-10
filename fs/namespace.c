@@ -3411,7 +3411,7 @@ int path_mount(const char *dev_name, struct path *path,
 	if (data_page)
 		((char *)data_page)[PAGE_SIZE - 1] = 0;
 
-	if (flags & MS_NOUSER)
+	if (flags & SB_NOUSER)
 		return -EINVAL;
 
 	ret = security_sb_mount(dev_name, path, type_page, flags, data_page);
