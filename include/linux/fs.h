@@ -1129,6 +1129,7 @@ enum {
 
 struct sb_writers {
 	int				frozen;		/* Is sb frozen? */
+	bool				frozen_by_user;	/* User freeze? */
 	wait_queue_head_t		wait_unfrozen;	/* wait for thaw */
 	struct percpu_rw_semaphore	rw_sem[SB_FREEZE_LEVELS];
 };
@@ -1613,6 +1614,17 @@ static inline bool sb_start_intwrite_trylock(struct super_block *sb)
 static inline bool sb_is_frozen(struct super_block *sb)
 {
 	return sb->s_writers.frozen == SB_FREEZE_COMPLETE;
+}
+
+/**
+ * sb_is_frozen_by_user - was the superblock frozen by userspace?
+ * @sb: the super to check
+ *
+ * Returns true if the super is frozen by userspace, such as an ioctl.
+ */
+static inline bool sb_is_frozen_by_user(struct super_block *sb)
+{
+	return sb_is_frozen(sb) && sb->s_writers.frozen_by_user;
 }
 
 /**
@@ -2292,8 +2304,8 @@ extern int unregister_filesystem(struct file_system_type *);
 extern int vfs_statfs(const struct path *, struct kstatfs *);
 extern int user_statfs(const char __user *, struct kstatfs *);
 extern int fd_statfs(int, struct kstatfs *);
-extern int freeze_super(struct super_block *super);
-extern int thaw_super(struct super_block *super);
+extern int freeze_super(struct super_block *super, bool usercall);
+extern int thaw_super(struct super_block *super, bool usercall);
 extern __printf(2, 3)
 int super_setup_bdi_name(struct super_block *sb, char *fmt, ...);
 extern int super_setup_bdi(struct super_block *sb);

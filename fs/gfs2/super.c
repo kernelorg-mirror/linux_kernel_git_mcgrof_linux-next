@@ -672,7 +672,7 @@ void gfs2_freeze_func(struct work_struct *work)
 		gfs2_assert_withdraw(sdp, 0);
 	} else {
 		atomic_set(&sdp->sd_freeze_state, SFS_UNFROZEN);
-		error = thaw_super(sb);
+		error = thaw_super(sb, true);
 		if (error) {
 			fs_info(sdp, "GFS2: couldn't thaw filesystem: %d\n",
 				error);

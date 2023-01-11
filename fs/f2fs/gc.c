@@ -2141,7 +2141,7 @@ out_unlock:
 
 	if (!get_active_super(sbi->sb->s_bdev))
 		return -ENOTTY;
-	freeze_super(sbi->sb);
+	freeze_super(sbi->sb, true);
 
 	f2fs_down_write(&sbi->gc_lock);
 	f2fs_down_write(&sbi->cp_global_sem);
@@ -2194,7 +2194,7 @@ out_err:
 	f2fs_up_write(&sbi->cp_global_sem);
 	f2fs_up_write(&sbi->gc_lock);
 	/* We use the same active reference from freeze */
-	thaw_super(sbi->sb);
+	thaw_super(sbi->sb, true);
 	deactivate_locked_super(sbi->sb);
 	return err;
 }
