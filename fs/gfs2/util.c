@@ -345,10 +345,15 @@ int gfs2_withdraw(struct gfs2_sbd *sdp)
 	set_bit(SDF_WITHDRAW_IN_PROG, &sdp->sd_flags);
 
 	if (sdp->sd_args.ar_errors == GFS2_ERRORS_WITHDRAW) {
+		if (!get_active_super(sb->s_bdev)) {
+			fs_err(sdp, "could not grab super on withdraw for file system\n");
+			return -1;
+		}
 		fs_err(sdp, "about to withdraw this file system\n");
 		BUG_ON(sdp->sd_args.ar_debug);
 
 		signal_our_withdraw(sdp);
+		deactivate_locked_super(sb);
 
 		kobject_uevent(&sdp->sd_kobj, KOBJ_OFFLINE);
 

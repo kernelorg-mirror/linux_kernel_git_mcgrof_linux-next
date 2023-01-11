@@ -661,7 +661,12 @@ void gfs2_freeze_func(struct work_struct *work)
 	struct gfs2_sbd *sdp = container_of(work, struct gfs2_sbd, sd_freeze_work);
 	struct super_block *sb = sdp->sd_vfs;
 
-	atomic_inc(&sb->s_active);
+	if (!get_active_super(sb->s_bdev)) {
+		fs_info(sdp, "GFS2: couldn't grap super for thaw for filesystem\n");
+		gfs2_assert_withdraw(sdp, 0);
+		return;
+	}
+
 	error = gfs2_freeze_lock(sdp, &freeze_gh, 0);
 	if (error) {
 		gfs2_assert_withdraw(sdp, 0);
@@ -675,7 +680,7 @@ void gfs2_freeze_func(struct work_struct *work)
 		}
 		gfs2_freeze_unlock(&freeze_gh);
 	}
-	deactivate_super(sb);
+	deactivate_locked_super(sb);
 	clear_bit_unlock(SDF_FS_FROZEN, &sdp->sd_flags);
 	wake_up_bit(&sdp->sd_flags, SDF_FS_FROZEN);
 	return;
