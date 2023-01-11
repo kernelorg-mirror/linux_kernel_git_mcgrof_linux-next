@@ -1026,7 +1026,7 @@ static void do_thaw_all_callback(struct super_block *sb)
 		return;
 	if (sb->s_root && sb->s_flags & SB_BORN) {
 		emergency_thaw_bdev(sb);
-		thaw_super(sb);
+		thaw_super(sb, true);
 	}
 	deactivate_locked_super(sb);
 }
@@ -1636,6 +1636,8 @@ static void sb_freeze_unlock(struct super_block *sb, int level)
 /**
  * freeze_super - force a filesystem backed by a block device into a consistent state
  * @sb: the super to lock
+ * @usercall: whether or not userspace initiated this via an ioctl or if it
+ * 	was a kernel freeze
  *
  * Used by filesystems and the kernel to freeze a fileystem backed by a block
  * device into a consistent state. Callers must use get_active_super(bdev) to
@@ -1669,9 +1671,12 @@ static void sb_freeze_unlock(struct super_block *sb, int level)
  *
  * sb->s_writers.frozen is protected by sb->s_umount.
  */
-int freeze_super(struct super_block *sb)
+int freeze_super(struct super_block *sb, bool usercall)
 {
 	int ret;
+
+	if (!usercall && sb_is_frozen(sb))
+		return 0;
 
 	if (!sb_is_unfrozen(sb))
 		return -EBUSY;
@@ -1682,6 +1687,7 @@ int freeze_super(struct super_block *sb)
 	if (sb_rdonly(sb)) {
 		/* Nothing to do really... */
 		sb->s_writers.frozen = SB_FREEZE_COMPLETE;
+		sb->s_writers.frozen_by_user = usercall;
 		return 0;
 	}
 
@@ -1699,6 +1705,7 @@ int freeze_super(struct super_block *sb)
 	ret = sync_filesystem(sb);
 	if (ret) {
 		sb->s_writers.frozen = SB_UNFROZEN;
+		sb->s_writers.frozen_by_user = false;
 		sb_freeze_unlock(sb, SB_FREEZE_PAGEFAULT);
 		wake_up(&sb->s_writers.wait_unfrozen);
 		return ret;
@@ -1724,6 +1731,7 @@ int freeze_super(struct super_block *sb)
 	 * when frozen is set to SB_FREEZE_COMPLETE, and for thaw_super().
 	 */
 	sb->s_writers.frozen = SB_FREEZE_COMPLETE;
+	sb->s_writers.frozen_by_user = usercall;
 	lockdep_sb_freeze_release(sb);
 	return 0;
 }
@@ -1732,21 +1740,33 @@ EXPORT_SYMBOL(freeze_super);
 /**
  * thaw_super -- unlock a filesystem backed by a block device
  * @sb: the super to thaw
+ * @usercall: whether or not userspace initiated this thaw or if it was the
+ * 	kernel which initiated it
  *
  * Used by filesystems and the kernel to thaw a fileystem backed by a block
  * device. Callers must use get_active_super(bdev) to lock the @sb and when
  * done must unlock it with deactivate_locked_super(). Once done, this marks
  * the filesystem as writeable.
  */
-int thaw_super(struct super_block *sb)
+int thaw_super(struct super_block *sb, bool usercall)
 {
 	int error;
 
-	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE)
+	if (!usercall) {
+		/*
+		 * If userspace initiated the freeze don't let the kernel
+		 * thaw it on return from a kernel initiated freeze.
+		 */
+		if (sb_is_unfrozen(sb) || sb_is_frozen_by_user(sb))
+			return 0;
+	}
+
+	if (!sb_is_frozen(sb))
 		return -EINVAL;
 
 	if (sb_rdonly(sb)) {
 		sb->s_writers.frozen = SB_UNFROZEN;
+		sb->s_writers.frozen_by_user = false;
 		goto out;
 	}
 
@@ -1763,6 +1783,7 @@ int thaw_super(struct super_block *sb)
 	}
 
 	sb->s_writers.frozen = SB_UNFROZEN;
+	sb->s_writers.frozen_by_user = false;
 	sb_freeze_unlock(sb, SB_FREEZE_FS);
 out:
 	wake_up(&sb->s_writers.wait_unfrozen);
