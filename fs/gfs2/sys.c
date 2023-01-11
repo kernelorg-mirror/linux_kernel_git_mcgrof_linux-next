@@ -162,6 +162,9 @@ static ssize_t freeze_store(struct gfs2_sbd *sdp, const char *buf, size_t len)
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
+	if (!grab_lock_super(sb))
+		return -ENOTTY;
+
 	switch (n) {
 	case 0:
 		error = thaw_super(sdp->sd_vfs);
@@ -170,8 +173,11 @@ static ssize_t freeze_store(struct gfs2_sbd *sdp, const char *buf, size_t len)
 		error = freeze_super(sdp->sd_vfs);
 		break;
 	default:
+		deactivate_locked_super(sb);
 		return -EINVAL;
 	}
+
+	deactivate_locked_super(sb);
 
 	if (error) {
 		fs_warn(sdp, "freeze %d error %d\n", n, error);

@@ -2235,6 +2235,7 @@ void kill_block_super(struct super_block *sb);
 void kill_anon_super(struct super_block *sb);
 void kill_litter_super(struct super_block *sb);
 void deactivate_super(struct super_block *sb);
+int grab_lock_super(struct super_block *s);
 void deactivate_locked_super(struct super_block *sb);
 int set_anon_super(struct super_block *s, void *data);
 int set_anon_super_fc(struct super_block *s, struct fs_context *fc);

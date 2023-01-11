@@ -386,6 +386,7 @@ static int ioctl_fioasync(unsigned int fd, struct file *filp,
 static int ioctl_fsfreeze(struct file *filp)
 {
 	struct super_block *sb = file_inode(filp)->i_sb;
+	int ret;
 
 	if (!ns_capable(sb->s_user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
@@ -394,10 +395,17 @@ static int ioctl_fsfreeze(struct file *filp)
 	if (sb->s_op->freeze_fs == NULL && sb->s_op->freeze_super == NULL)
 		return -EOPNOTSUPP;
 
+	if (!grab_lock_super(sb))
+		return -ENOTTY;
+
 	/* Freeze */
 	if (sb->s_op->freeze_super)
-		return sb->s_op->freeze_super(sb);
-	return freeze_super(sb);
+		ret = sb->s_op->freeze_super(sb);
+	ret = freeze_super(sb);
+
+	deactivate_locked_super(sb);
+
+	return ret;
 }
 
 static int ioctl_fsthaw(struct file *filp)

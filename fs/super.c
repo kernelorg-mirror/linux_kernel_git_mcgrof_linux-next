@@ -39,8 +39,6 @@
 #include <uapi/linux/mount.h>
 #include "internal.h"
 
-static int thaw_super_locked(struct super_block *sb);
-
 static LIST_HEAD(super_blocks);
 static DEFINE_SPINLOCK(sb_lock);
 
@@ -392,6 +390,26 @@ static int grab_super(struct super_block *s) __releases(sb_lock)
 	put_super(s);
 	return 0;
 }
+
+/**
+ *	grab_lock_super - lock and grab_super() to get an active reference
+ *	@s: reference we are trying to make active
+ *
+ *	Using grab_super() assumes you have the sb_lock held, this gets it
+ *	for you and calls grab_super() to get an acquire an active reference an
+ *	active for the superblock. Once done with the superblock user should
+ *	call deactivate_locked_super().
+ *
+ *	Returns 0 when the successful otherwise 0 is returned.
+ */
+int grab_lock_super(struct super_block *s)
+{
+	spin_lock(&sb_lock);
+	if (!grab_super(s))
+		return 0;
+	return 1;
+}
+EXPORT_SYMBOL_GPL(grab_lock_super);
 
 /*
  *	trylock_super - try to grab ->s_umount shared
@@ -830,7 +848,6 @@ restart:
 		if (sb->s_bdev == bdev) {
 			if (!grab_super(sb))
 				goto restart;
-			up_write(&sb->s_umount);
 			return sb;
 		}
 	}
@@ -1003,13 +1020,13 @@ void emergency_remount(void)
 
 static void do_thaw_all_callback(struct super_block *sb)
 {
-	down_write(&sb->s_umount);
+	if (!grab_lock_super(sb))
+		return;
 	if (sb->s_root && sb->s_flags & SB_BORN) {
 		emergency_thaw_bdev(sb);
-		thaw_super_locked(sb);
-	} else {
-		up_write(&sb->s_umount);
+		thaw_super(sb);
 	}
+	deactivate_locked_super(sb);
 }
 
 static void do_thaw_all(struct work_struct *work)
@@ -1651,22 +1668,15 @@ int freeze_super(struct super_block *sb)
 {
 	int ret;
 
-	atomic_inc(&sb->s_active);
-	down_write(&sb->s_umount);
-	if (sb->s_writers.frozen != SB_UNFROZEN) {
-		deactivate_locked_super(sb);
+	if (sb->s_writers.frozen != SB_UNFROZEN)
 		return -EBUSY;
-	}
 
-	if (!(sb->s_flags & SB_BORN)) {
-		up_write(&sb->s_umount);
+	if (!(sb->s_flags & SB_BORN))
 		return 0;	/* sic - it's "nothing to do" */
-	}
 
 	if (sb_rdonly(sb)) {
 		/* Nothing to do really... */
 		sb->s_writers.frozen = SB_FREEZE_COMPLETE;
-		up_write(&sb->s_umount);
 		return 0;
 	}
 
@@ -1686,7 +1696,6 @@ int freeze_super(struct super_block *sb)
 		sb->s_writers.frozen = SB_UNFROZEN;
 		sb_freeze_unlock(sb, SB_FREEZE_PAGEFAULT);
 		wake_up(&sb->s_writers.wait_unfrozen);
-		deactivate_locked_super(sb);
 		return ret;
 	}
 
@@ -1702,7 +1711,6 @@ int freeze_super(struct super_block *sb)
 			sb->s_writers.frozen = SB_UNFROZEN;
 			sb_freeze_unlock(sb, SB_FREEZE_FS);
 			wake_up(&sb->s_writers.wait_unfrozen);
-			deactivate_locked_super(sb);
 			return ret;
 		}
 	}
@@ -1712,19 +1720,22 @@ int freeze_super(struct super_block *sb)
 	 */
 	sb->s_writers.frozen = SB_FREEZE_COMPLETE;
 	lockdep_sb_freeze_release(sb);
-	up_write(&sb->s_umount);
 	return 0;
 }
 EXPORT_SYMBOL(freeze_super);
 
-static int thaw_super_locked(struct super_block *sb)
+/**
+ * thaw_super -- unlock filesystem
+ * @sb: the super to thaw
+ *
+ * Unlocks the filesystem and marks it writeable again after freeze_super().
+ */
+int thaw_super(struct super_block *sb)
 {
 	int error;
 
-	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE) {
-		up_write(&sb->s_umount);
+	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE)
 		return -EINVAL;
-	}
 
 	if (sb_rdonly(sb)) {
 		sb->s_writers.frozen = SB_UNFROZEN;
@@ -1739,7 +1750,6 @@ static int thaw_super_locked(struct super_block *sb)
 			printk(KERN_ERR
 				"VFS:Filesystem thaw failed\n");
 			lockdep_sb_freeze_release(sb);
-			up_write(&sb->s_umount);
 			return error;
 		}
 	}
@@ -1748,19 +1758,6 @@ static int thaw_super_locked(struct super_block *sb)
 	sb_freeze_unlock(sb, SB_FREEZE_FS);
 out:
 	wake_up(&sb->s_writers.wait_unfrozen);
-	deactivate_locked_super(sb);
 	return 0;
-}
-
-/**
- * thaw_super -- unlock filesystem
- * @sb: the super to thaw
- *
- * Unlocks the filesystem and marks it writeable again after freeze_super().
- */
-int thaw_super(struct super_block *sb)
-{
-	down_write(&sb->s_umount);
-	return thaw_super_locked(sb);
 }
 EXPORT_SYMBOL(thaw_super);
