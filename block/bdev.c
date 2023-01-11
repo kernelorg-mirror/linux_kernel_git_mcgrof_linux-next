@@ -250,7 +250,7 @@ int freeze_bdev(struct block_device *bdev)
 	if (sb->s_op->freeze_super)
 		error = sb->s_op->freeze_super(sb);
 	else
-		error = freeze_super(sb);
+		error = freeze_super(sb, true);
 	deactivate_locked_super(sb);
 
 	if (error) {
@@ -295,7 +295,7 @@ int thaw_bdev(struct block_device *bdev)
 	if (sb->s_op->thaw_super)
 		error = sb->s_op->thaw_super(sb);
 	else
-		error = thaw_super(sb);
+		error = thaw_super(sb, true);
 	if (error)
 		bdev->bd_fsfreeze_count++;
 	else
