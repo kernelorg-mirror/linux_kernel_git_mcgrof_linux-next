@@ -401,7 +401,7 @@ static int ioctl_fsfreeze(struct file *filp)
 	/* Freeze */
 	if (sb->s_op->freeze_super)
 		ret = sb->s_op->freeze_super(sb);
-	ret = freeze_super(sb);
+	ret = freeze_super(sb, true);
 
 	deactivate_locked_super(sb);
 
@@ -418,7 +418,7 @@ static int ioctl_fsthaw(struct file *filp)
 	/* Thaw */
 	if (sb->s_op->thaw_super)
 		return sb->s_op->thaw_super(sb);
-	return thaw_super(sb);
+	return thaw_super(sb, true);
 }
 
 static int ioctl_file_dedupe_range(struct file *file,
