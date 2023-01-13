@@ -41,7 +41,6 @@ static struct task_struct *ecryptfs_kthread;
  */
 static int ecryptfs_threadfn(void *ignored)
 {
-	set_freezable();
 	while (1)  {
 		struct ecryptfs_open_req *req;
 
