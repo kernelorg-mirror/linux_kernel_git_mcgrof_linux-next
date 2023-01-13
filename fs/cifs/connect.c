@@ -375,7 +375,6 @@ static int __cifs_reconnect(struct TCP_Server_Info *server,
 	cifs_abort_connection(server);
 
 	do {
-		try_to_freeze();
 		cifs_server_lock(server);
 
 		if (!cifs_swn_set_server_dstaddr(server)) {
@@ -504,7 +503,6 @@ static int reconnect_dfs_server(struct TCP_Server_Info *server)
 	cifs_abort_connection(server);
 
 	do {
-		try_to_freeze();
 		cifs_server_lock(server);
 
 		rc = reconnect_target_unlocked(server, &tl, &target_hint);
@@ -678,8 +676,6 @@ cifs_readv_from_socket(struct TCP_Server_Info *server, struct msghdr *smb_msg)
 	int total_read;
 
 	for (total_read = 0; msg_data_left(smb_msg); total_read += length) {
-		try_to_freeze();
-
 		/* reconnect if no credits and no requests in flight */
 		if (zero_credits(server)) {
 			cifs_reconnect(server, false);
@@ -1132,12 +1128,8 @@ cifs_demultiplex_thread(void *p)
 	if (length > 1)
 		mempool_resize(cifs_req_poolp, length + cifs_min_rcv);
 
-	set_freezable();
 	allow_kernel_signal(SIGKILL);
 	while (server->tcpStatus != CifsExiting) {
-		if (try_to_freeze())
-			continue;
-
 		if (!allocate_buffers(server))
 			continue;
 
