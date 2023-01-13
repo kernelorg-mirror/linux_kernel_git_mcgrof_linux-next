@@ -1857,8 +1857,6 @@ EXPORT_SYMBOL(thaw_super);
 #ifdef CONFIG_PM_SLEEP
 static bool super_should_freeze(struct super_block *sb)
 {
-	if (!(sb->s_type->fs_flags & FS_AUTOFREEZE))
-		return false;
 	/*
 	 * We don't freeze virtual filesystems, we skip those filesystems with
 	 * no backing device.

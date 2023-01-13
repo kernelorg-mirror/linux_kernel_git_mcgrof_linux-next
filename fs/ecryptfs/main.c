@@ -637,7 +637,7 @@ static struct file_system_type ecryptfs_fs_type = {
 	.name = "ecryptfs",
 	.mount = ecryptfs_mount,
 	.kill_sb = ecryptfs_kill_block_super,
-	.fs_flags = 0| FS_AUTOFREEZE
+	.fs_flags = 0
 };
 MODULE_ALIAS_FS("ecryptfs");
 

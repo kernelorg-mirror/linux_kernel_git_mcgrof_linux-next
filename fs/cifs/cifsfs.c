@@ -1104,7 +1104,7 @@ struct file_system_type cifs_fs_type = {
 	.init_fs_context = smb3_init_fs_context,
 	.parameters = smb3_fs_parameters,
 	.kill_sb = cifs_kill_sb,
-	.fs_flags = FS_RENAME_DOES_D_MOVE | FS_AUTOFREEZE,
+	.fs_flags = FS_RENAME_DOES_D_MOVE,
 };
 MODULE_ALIAS_FS("cifs");
 
@@ -1114,7 +1114,7 @@ struct file_system_type smb3_fs_type = {
 	.init_fs_context = smb3_init_fs_context,
 	.parameters = smb3_fs_parameters,
 	.kill_sb = cifs_kill_sb,
-	.fs_flags = FS_RENAME_DOES_D_MOVE | FS_AUTOFREEZE,
+	.fs_flags = FS_RENAME_DOES_D_MOVE,
 };
 MODULE_ALIAS_FS("smb3");
 MODULE_ALIAS("smb3");
