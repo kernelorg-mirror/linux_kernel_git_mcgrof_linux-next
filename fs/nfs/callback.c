@@ -77,8 +77,6 @@ nfs4_callback_svc(void *vrqstp)
 	int err;
 	struct svc_rqst *rqstp = vrqstp;
 
-	set_freezable();
-
 	while (!kthread_freezable_should_stop(NULL)) {
 
 		if (signal_pending(current))
@@ -108,8 +106,6 @@ nfs41_callback_svc(void *vrqstp)
 	struct rpc_rqst *req;
 	int error;
 	DEFINE_WAIT(wq);
-
-	set_freezable();
 
 	while (!kthread_freezable_should_stop(NULL)) {
 
