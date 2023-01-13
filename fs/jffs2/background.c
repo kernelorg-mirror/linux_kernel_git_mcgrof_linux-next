@@ -87,7 +87,6 @@ static int jffs2_garbage_collect_thread(void *_c)
 
 	set_user_nice(current, 10);
 
-	set_freezable();
 	for (;;) {
 		sigprocmask(SIG_UNBLOCK, &hupmask, NULL);
 	again:
@@ -119,7 +118,7 @@ static int jffs2_garbage_collect_thread(void *_c)
 
 		/* Put_super will send a SIGKILL and then wait on the sem.
 		 */
-		while (signal_pending(current) || freezing(current)) {
+		while (signal_pending(current) ||) {
 			unsigned long signr;
 
 			if (try_to_freeze())
