@@ -75,7 +75,7 @@ static int __init fscache_init(void)
 {
 	int ret = -ENOMEM;
 
-	fscache_wq = alloc_workqueue("fscache", WQ_UNBOUND | WQ_FREEZABLE, 0);
+	fscache_wq = alloc_workqueue("fscache", WQ_UNBOUND, 0);
 	if (!fscache_wq)
 		goto error_wq;
 
