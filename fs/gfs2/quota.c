@@ -1555,8 +1555,6 @@ int gfs2_quotad(void *data)
 		quotad_check_timeo(sdp, "sync", gfs2_quota_sync, t,
 				   &quotad_timeo, &tune->gt_quota_quantum);
 
-		try_to_freeze();
-
 bypass:
 		t = min(quotad_timeo, statfs_timeo);
 
