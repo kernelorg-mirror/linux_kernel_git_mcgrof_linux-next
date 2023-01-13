@@ -292,9 +292,6 @@ int ksmbd_conn_handler_loop(void *p)
 
 	conn->last_active = jiffies;
 	while (ksmbd_conn_alive(conn)) {
-		if (try_to_freeze())
-			continue;
-
 		kvfree(conn->request_buf);
 		conn->request_buf = NULL;
 

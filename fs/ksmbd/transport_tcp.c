@@ -305,8 +305,6 @@ static int ksmbd_tcp_readv(struct tcp_transport *t, struct kvec *iov_orig,
 	ksmbd_msg.msg_controllen = 0;
 
 	for (total_read = 0; to_read; total_read += length, to_read -= length) {
-		try_to_freeze();
-
 		if (!ksmbd_conn_alive(conn)) {
 			total_read = -ESHUTDOWN;
 			break;
