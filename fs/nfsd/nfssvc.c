@@ -963,8 +963,6 @@ nfsd(void *vrqstp)
 
 	atomic_inc(&nfsdstats.th_cnt);
 
-	set_freezable();
-
 	/*
 	 * The main request loop
 	 */
