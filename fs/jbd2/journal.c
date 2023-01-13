@@ -169,14 +169,14 @@ static int kjournald2(void *arg)
 {
 	journal_t *journal = arg;
 	transaction_t *transaction;
+	DEFINE_WAIT(wait);
+	int should_sleep = 1;
 
 	/*
 	 * Set up an interval timer which can be used to trigger a commit wakeup
 	 * after the commit interval expires
 	 */
 	timer_setup(&journal->j_commit_timer, commit_timeout, 0);
-
-	set_freezable();
 
 	/* Record that the journal thread is running */
 	journal->j_task = current;
@@ -212,41 +212,27 @@ loop:
 	}
 
 	wake_up(&journal->j_wait_done_commit);
-	if (freezing(current)) {
-		/*
-		 * The simpler the better. Flushing journal isn't a
-		 * good idea, because that depends on threads that may
-		 * be already stopped.
-		 */
-		jbd2_debug(1, "Now suspending kjournald2\n");
-		write_unlock(&journal->j_state_lock);
-		try_to_freeze();
-		write_lock(&journal->j_state_lock);
-	} else {
-		/*
-		 * We assume on resume that commits are already there,
-		 * so we don't sleep
-		 */
-		DEFINE_WAIT(wait);
-		int should_sleep = 1;
+	/*
+	 * We assume on resume that commits are already there,
+	 * so we don't sleep
+	 */
 
-		prepare_to_wait(&journal->j_wait_commit, &wait,
-				TASK_INTERRUPTIBLE);
-		if (journal->j_commit_sequence != journal->j_commit_request)
-			should_sleep = 0;
-		transaction = journal->j_running_transaction;
-		if (transaction && time_after_eq(jiffies,
-						transaction->t_expires))
-			should_sleep = 0;
-		if (journal->j_flags & JBD2_UNMOUNT)
-			should_sleep = 0;
-		if (should_sleep) {
-			write_unlock(&journal->j_state_lock);
-			schedule();
-			write_lock(&journal->j_state_lock);
-		}
-		finish_wait(&journal->j_wait_commit, &wait);
+	prepare_to_wait(&journal->j_wait_commit, &wait,
+			TASK_INTERRUPTIBLE);
+	if (journal->j_commit_sequence != journal->j_commit_request)
+		should_sleep = 0;
+	transaction = journal->j_running_transaction;
+	if (transaction && time_after_eq(jiffies,
+					transaction->t_expires))
+		should_sleep = 0;
+	if (journal->j_flags & JBD2_UNMOUNT)
+		should_sleep = 0;
+	if (should_sleep) {
+		write_unlock(&journal->j_state_lock);
+		schedule();
+		write_lock(&journal->j_state_lock);
 	}
+	finish_wait(&journal->j_wait_commit, &wait);
 
 	jbd2_debug(1, "kjournald2 wakes\n");
 
