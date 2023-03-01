@@ -118,11 +118,13 @@ struct shmem_options {
 	int huge;
 	int seen;
 	bool noswap;
+	u64 blocksize;
 #define SHMEM_SEEN_BLOCKS 1
 #define SHMEM_SEEN_INODES 2
 #define SHMEM_SEEN_HUGE 4
 #define SHMEM_SEEN_INUMS 8
 #define SHMEM_SEEN_NOSWAP 16
+#define SHMEM_SEEN_BLOCKSIZE 32
 };
 
 static u64 shmem_default_bsize(void)
@@ -3779,6 +3781,7 @@ enum shmem_param {
 	Opt_inode32,
 	Opt_inode64,
 	Opt_noswap,
+	Opt_bsize,
 };
 
 static const struct constant_table shmem_param_enums_huge[] = {
@@ -3801,6 +3804,7 @@ const struct fs_parameter_spec shmem_fs_parameters[] = {
 	fsparam_flag  ("inode32",	Opt_inode32),
 	fsparam_flag  ("inode64",	Opt_inode64),
 	fsparam_flag  ("noswap",	Opt_noswap),
+	fsparam_u32   ("bsize",		Opt_bsize),
 	{}
 };
 
@@ -3827,7 +3831,14 @@ static int shmem_parse_one(struct fs_context *fc, struct fs_parameter *param)
 		}
 		if (*rest)
 			goto bad_value;
-		ctx->blocks = DIV_ROUND_UP(size, shmem_default_bsize());
+		if (!(ctx->seen & SHMEM_SEEN_BLOCKSIZE) ||
+		    ctx->blocksize == shmem_default_bsize())
+			ctx->blocks = DIV_ROUND_UP(size, shmem_default_bsize());
+		else {
+			if (size < ctx->blocksize || size % ctx->blocksize != 0)
+				goto bad_value;
+			ctx->blocks = DIV_ROUND_UP(size, ctx->blocksize);
+		}
 		ctx->seen |= SHMEM_SEEN_BLOCKS;
 		break;
 	case Opt_nr_blocks:
@@ -3891,6 +3902,23 @@ static int shmem_parse_one(struct fs_context *fc, struct fs_parameter *param)
 		}
 		ctx->noswap = true;
 		ctx->seen |= SHMEM_SEEN_NOSWAP;
+		break;
+	case Opt_bsize:
+		ctx->blocksize = result.uint_32;
+		ctx->seen |= SHMEM_SEEN_BLOCKSIZE;
+		/* Must be >= PAGE_SIZE */
+		if (ctx->blocksize < PAGE_SIZE)
+			goto bad_value;
+		/*
+		 * We cap this to allow a block to be at least allowed to
+		 * be allocated using the buddy allocator. That's MAX_ORDER
+		 * pages. So 4 MiB on x86_64.
+		 */
+		if (ctx->blocksize > (1 << (MAX_ORDER + PAGE_SHIFT)))
+			goto bad_value;
+		/* The blocksize must be a multiple of the page size so must be aligned */
+		if (!PAGE_ALIGNED(ctx->blocksize))
+			goto bad_value;
 		break;
 	}
 	return 0;
@@ -3963,6 +3991,12 @@ static int shmem_reconfigure(struct fs_context *fc)
 	raw_spin_lock(&sbinfo->stat_lock);
 	inodes = sbinfo->max_inodes - sbinfo->free_inodes;
 
+	if (ctx->seen & SHMEM_SEEN_BLOCKSIZE) {
+		if (ctx->blocksize != shmem_sb_blocksize(sbinfo)) {
+			err = "Cannot modify block size on remount";
+			goto out;
+		}
+	}
 	if ((ctx->seen & SHMEM_SEEN_BLOCKS) && ctx->blocks) {
 		if (!sbinfo->max_blocks) {
 			err = "Cannot retroactively limit size";
@@ -4078,6 +4112,8 @@ static int shmem_show_options(struct seq_file *seq, struct dentry *root)
 	shmem_show_mpol(seq, sbinfo->mpol);
 	if (sbinfo->noswap)
 		seq_printf(seq, ",noswap");
+	if (shmem_sb_blocksize(sbinfo) != shmem_default_bsize())
+		seq_printf(seq, ",bsize=%llu", shmem_sb_blocksize(sbinfo));
 	return 0;
 }
 
@@ -4115,10 +4151,12 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 	 * but the internal instance is left unlimited.
 	 */
 	if (!(sb->s_flags & SB_KERNMOUNT)) {
+		if (!(ctx->seen & SHMEM_SEEN_BLOCKSIZE))
+			ctx->blocksize = shmem_default_bsize();
 		if (!(ctx->seen & SHMEM_SEEN_BLOCKS))
-			ctx->blocks = shmem_default_max_blocks(shmem_default_bsize());
+			ctx->blocks = shmem_default_max_blocks(ctx->blocksize);
 		if (!(ctx->seen & SHMEM_SEEN_INODES))
-			ctx->inodes = shmem_default_max_inodes(shmem_default_bsize());
+			ctx->inodes = shmem_default_max_inodes(ctx->blocksize);
 		if (!(ctx->seen & SHMEM_SEEN_INUMS))
 			ctx->full_inums = IS_ENABLED(CONFIG_TMPFS_INODE64);
 		sbinfo->noswap = ctx->noswap;
@@ -4127,7 +4165,7 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 	}
 	sb->s_export_op = &shmem_export_ops;
 	sb->s_flags |= SB_NOSEC | SB_I_VERSION;
-	sbinfo->blocksize = shmem_default_bsize();
+	sbinfo->blocksize = ctx->blocksize;
 #else
 	sb->s_flags |= SB_NOUSER;
 #endif
@@ -4155,7 +4193,6 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	sb->s_blocksize = shmem_sb_blocksize(sbinfo);
 	sb->s_blocksize_bits = __ffs(sb->s_blocksize);
-	WARN_ON_ONCE(sb->s_blocksize_bits != PAGE_SHIFT);
 	sb->s_magic = TMPFS_MAGIC;
 	sb->s_op = &shmem_ops;
 	sb->s_time_gran = 1;
