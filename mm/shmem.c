@@ -115,11 +115,13 @@ struct shmem_options {
 	int huge;
 	int seen;
 	bool noswap;
+	unsigned char block_order;
 #define SHMEM_SEEN_BLOCKS 1
 #define SHMEM_SEEN_INODES 2
 #define SHMEM_SEEN_HUGE 4
 #define SHMEM_SEEN_INUMS 8
 #define SHMEM_SEEN_NOSWAP 16
+#define SHMEM_SEEN_BLOCKORDER 32
 };
 
 static u64 shmem_default_block_order(void)
@@ -3663,6 +3665,7 @@ enum shmem_param {
 	Opt_inode32,
 	Opt_inode64,
 	Opt_noswap,
+	Opt_border,
 };
 
 static const struct constant_table shmem_param_enums_huge[] = {
@@ -3685,6 +3688,7 @@ const struct fs_parameter_spec shmem_fs_parameters[] = {
 	fsparam_flag  ("inode32",	Opt_inode32),
 	fsparam_flag  ("inode64",	Opt_inode64),
 	fsparam_flag  ("noswap",	Opt_noswap),
+	fsparam_u32   ("border",	Opt_border),
 	{}
 };
 
@@ -3711,7 +3715,15 @@ static int shmem_parse_one(struct fs_context *fc, struct fs_parameter *param)
 		}
 		if (*rest)
 			goto bad_value;
-		ctx->blocks = DIV_ROUND_UP(size, PAGE_SIZE);
+		if (!(ctx->seen & SHMEM_SEEN_BLOCKORDER) ||
+		    ctx->block_order == shmem_default_block_order())
+			ctx->blocks = DIV_ROUND_UP(size, PAGE_SIZE);
+		else {
+			if (size < (1UL << ctx->block_order) ||
+			    size % (1UL << ctx->block_order) != 0)
+				goto bad_value;
+			ctx->blocks = size >> ctx->block_order;
+		}
 		ctx->seen |= SHMEM_SEEN_BLOCKS;
 		break;
 	case Opt_nr_blocks:
@@ -3775,6 +3787,19 @@ static int shmem_parse_one(struct fs_context *fc, struct fs_parameter *param)
 		}
 		ctx->noswap = true;
 		ctx->seen |= SHMEM_SEEN_NOSWAP;
+		break;
+	case Opt_border:
+		ctx->block_order = result.uint_32;
+		ctx->seen |= SHMEM_SEEN_BLOCKORDER;
+		if (ctx->block_order < PAGE_SHIFT)
+			goto bad_value;
+		/*
+		 * We cap this to allow a block to be at least allowed to
+		 * be allocated using the buddy allocator. That's MAX_ORDER
+		 * pages. So 8 MiB on x86_64.
+		 */
+		if (ctx->block_order > (MAX_ORDER + PAGE_SHIFT))
+			goto bad_value;
 		break;
 	}
 	return 0;
@@ -3847,6 +3872,12 @@ static int shmem_reconfigure(struct fs_context *fc)
 	raw_spin_lock(&sbinfo->stat_lock);
 	inodes = sbinfo->max_inodes - sbinfo->free_inodes;
 
+	if (ctx->seen & SHMEM_SEEN_BLOCKORDER) {
+		if (ctx->block_order != shmem_block_order(sbinfo)) {
+			err = "Cannot modify block order on remount";
+			goto out;
+		}
+	}
 	if ((ctx->seen & SHMEM_SEEN_BLOCKS) && ctx->blocks) {
 		if (!sbinfo->max_blocks) {
 			err = "Cannot retroactively limit size";
@@ -3965,6 +3996,8 @@ static int shmem_show_options(struct seq_file *seq, struct dentry *root)
 	mpol_put(mpol);
 	if (sbinfo->noswap)
 		seq_printf(seq, ",noswap");
+	if (shmem_block_order(sbinfo) != shmem_default_block_order())
+		seq_printf(seq, ",border=%llu", shmem_block_order(sbinfo));
 	return 0;
 }
 
@@ -4002,10 +4035,12 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 	 * but the internal instance is left unlimited.
 	 */
 	if (!(sb->s_flags & SB_KERNMOUNT)) {
+		if (!(ctx->seen & SHMEM_SEEN_BLOCKORDER))
+			ctx->block_order = shmem_default_block_order();
 		if (!(ctx->seen & SHMEM_SEEN_BLOCKS))
-			ctx->blocks = shmem_default_max_blocks(shmem_default_block_order());
+			ctx->blocks = shmem_default_max_blocks(ctx->block_order);
 		if (!(ctx->seen & SHMEM_SEEN_INODES))
-			ctx->inodes = shmem_default_max_inodes(shmem_default_block_order());
+			ctx->inodes = shmem_default_max_inodes(ctx->block_order);
 		if (!(ctx->seen & SHMEM_SEEN_INUMS))
 			ctx->full_inums = IS_ENABLED(CONFIG_TMPFS_INODE64);
 		sbinfo->noswap = ctx->noswap;
@@ -4014,7 +4049,7 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 	}
 	sb->s_export_op = &shmem_export_ops;
 	sb->s_flags |= SB_NOSEC | SB_I_VERSION;
-	sbinfo->block_order = shmem_default_block_order();
+	sbinfo->block_order = ctx->block_order;
 #else
 	sb->s_flags |= SB_NOUSER;
 #endif
@@ -4042,7 +4077,6 @@ static int shmem_fill_super(struct super_block *sb, struct fs_context *fc)
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	sb->s_blocksize = shmem_sb_blocksize(sbinfo);
 	sb->s_blocksize_bits = shmem_block_order(sbinfo);
-	WARN_ON_ONCE(sb->s_blocksize_bits != PAGE_SHIFT);
 	sb->s_magic = TMPFS_MAGIC;
 	sb->s_op = &shmem_ops;
 	sb->s_time_gran = 1;
