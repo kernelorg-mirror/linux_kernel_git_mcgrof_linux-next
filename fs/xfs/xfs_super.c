@@ -1582,6 +1582,7 @@ xfs_fs_fill_super(
 		goto out_free_sb;
 	}
 
+#if 0
 	/*
 	 * Until this is fixed only page-sized or smaller data blocks work.
 	 */
@@ -1593,6 +1594,7 @@ xfs_fs_fill_super(
 		error = -ENOSYS;
 		goto out_free_sb;
 	}
+#endif
 
 	/* Ensure this filesystem fits in the page cache limits */
 	if (xfs_sb_validate_fsb_count(&mp->m_sb, mp->m_sb.sb_dblocks) ||
