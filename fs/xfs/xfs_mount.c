@@ -130,10 +130,12 @@ xfs_sb_validate_fsb_count(
 	xfs_sb_t	*sbp,
 	uint64_t	nblocks)
 {
-	ASSERT(PAGE_SHIFT >= sbp->sb_blocklog);
 	ASSERT(sbp->sb_blocklog >= BBSHIFT);
 
 	/* Limited by ULONG_MAX of page cache index */
+	if (sbp->sb_blocklog > PAGE_SHIFT &&
+	    (nblocks << (sbp->sb_blocklog - PAGE_SHIFT) > ULONG_MAX))
+		return -EFBIG;
 	if (nblocks >> (PAGE_SHIFT - sbp->sb_blocklog) > ULONG_MAX)
 		return -EFBIG;
 	return 0;
