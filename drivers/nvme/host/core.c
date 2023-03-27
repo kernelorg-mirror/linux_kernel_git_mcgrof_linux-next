@@ -89,6 +89,10 @@ module_param(apst_secondary_latency_tol_us, ulong, 0644);
 MODULE_PARM_DESC(apst_secondary_latency_tol_us,
 	"secondary APST latency tolerance in us");
 
+static bool debug_large_lbas;
+module_param(debug_large_lbas, bool, 0644);
+MODULE_PARM_DESC(debug_large_lbas, "allow LBAs > PAGE_SIZE");
+
 /*
  * nvme_wq - hosts nvme related works that are not reset or delete
  * nvme_reset_wq - hosts nvme reset works
@@ -1971,6 +1975,33 @@ static void nvme_update_atomic_write_disk_info(struct nvme_ns *ns,
 	lim->atomic_write_hw_unit_max = rounddown_pow_of_two(atomic_bs);
 }
 
+/* XXX: shift 20 (1 MiB LBA) crashes on pure-iomap */
+#define NVME_MAX_SHIFT_SUPPORTED 19
+
+static bool nvme_lba_shift_supported(struct nvme_ns_head *head,
+				     struct nvme_ctrl *ctrl)
+{
+	if (head->lba_shift < SECTOR_SHIFT)
+		return false;
+
+	if (head->lba_shift <= PAGE_SHIFT)
+		return true;
+
+	if (IS_ENABLED(CONFIG_BUFFER_HEAD))
+		return false;
+
+	if (head->lba_shift <= NVME_MAX_SHIFT_SUPPORTED)
+		return true;
+
+	if (debug_large_lbas) {
+		dev_warn(ctrl->device,
+			"forcibly allowing LBAS > 1 MiB due to nvme_core.debug_large_lbas -- use at your own risk\n");
+		return true;
+	}
+
+	return false;
+}
+
 static u32 nvme_max_drv_segments(struct nvme_ctrl *ctrl)
 {
 	return ctrl->max_hw_sectors / (NVME_CTRL_PAGE_SIZE >> SECTOR_SHIFT) + 1;
@@ -2001,9 +2032,10 @@ static bool nvme_update_disk_info(struct nvme_ns *ns, struct nvme_id_ns *id,
 	 * or smaller than a sector size yet, so catch this early and don't
 	 * allow block I/O.
 	 */
-	if (head->lba_shift > PAGE_SHIFT || head->lba_shift < SECTOR_SHIFT) {
+	if (!nvme_lba_shift_supported(head, ns->ctrl)) {
 		bs = (1 << 9);
 		valid = false;
+		dev_warn(ns->ctrl->device, "I'm sorry dave, I'm afraid I can't do that\n");
 	}
 
 	atomic_bs = phys_bs = bs;
