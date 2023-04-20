@@ -2433,6 +2433,10 @@ static struct inode *shmem_get_inode(struct mnt_idmap *idmap, struct super_block
 		inode->i_ino = ino;
 		inode_init_owner(idmap, inode, dir, mode);
 		inode->i_blocks = 0;
+		if (sb->s_flags & SB_KERNMOUNT)
+			inode->i_blkbits = PAGE_SHIFT;
+		else
+			inode->i_blkbits = sb->s_blocksize_bits;
 		inode->i_atime = inode->i_mtime = inode->i_ctime = current_time(inode);
 		inode->i_generation = get_random_u32();
 		info = SHMEM_I(inode);
@@ -2678,19 +2682,42 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	struct file *file = iocb->ki_filp;
 	struct inode *inode = file_inode(file);
 	struct address_space *mapping = inode->i_mapping;
+	struct super_block *sb = inode->i_sb;
+	u64 bsize = i_blocksize(inode);
 	pgoff_t index;
 	unsigned long offset;
 	int error = 0;
 	ssize_t retval = 0;
 	loff_t *ppos = &iocb->ki_pos;
 
+	/*
+	 * Although our index is page specific, we can read a blocksize at a
+	 * time as we use a folio per block.
+	 */
 	index = *ppos >> PAGE_SHIFT;
-	offset = *ppos & ~PAGE_MASK;
+
+	/*
+	 * We're going to read a folio at a time of size blocksize.
+	 *
+	 * The offset represents the position in the folio where we are
+	 * currently doing reads on. It starts off by the offset position in the
+	 * first folio where we were asked to start our read. It later gets
+	 * incremented by the number of bytes we read per folio.  After the
+	 * first folio is read offset would be 0 as we are starting to read the
+	 * next folio at offset 0. We'd then read a full blocksize at a time
+	 * until we're done.
+	 */
+	offset = *ppos & (bsize - 1);
 
 	for (;;) {
 		struct folio *folio = NULL;
-		struct page *page = NULL;
 		pgoff_t end_index;
+		/*
+		 * nr represents the number of bytes we can read per folio,
+		 * and this will depend on the blocksize set. On the last
+		 * folio nr represents how much data on the last folio is
+		 * valid to be read on the inode.
+		 */
 		unsigned long nr, ret;
 		loff_t i_size = i_size_read(inode);
 
@@ -2698,7 +2725,7 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 		if (index > end_index)
 			break;
 		if (index == end_index) {
-			nr = i_size & ~PAGE_MASK;
+			nr = i_size & (bsize - 1);
 			if (nr <= offset)
 				break;
 		}
@@ -2711,9 +2738,7 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 		}
 		if (folio) {
 			folio_unlock(folio);
-
-			page = folio_file_page(folio, index);
-			if (PageHWPoison(page)) {
+			if (is_folio_hwpoison(folio)) {
 				folio_put(folio);
 				error = -EIO;
 				break;
@@ -2724,49 +2749,56 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 		 * We must evaluate after, since reads (unlike writes)
 		 * are called without i_rwsem protection against truncate
 		 */
-		nr = PAGE_SIZE;
+		nr = bsize;
+		WARN_ON(!(sb->s_flags & SB_KERNMOUNT) && folio && bsize != folio_size(folio));
 		i_size = i_size_read(inode);
 		end_index = i_size >> PAGE_SHIFT;
 		if (index == end_index) {
-			nr = i_size & ~PAGE_MASK;
+			nr = i_size & (bsize - 1);
 			if (nr <= offset) {
 				if (folio)
 					folio_put(folio);
 				break;
 			}
 		}
+
+		/*
+		 * On the first folio read the number of bytes we can read
+		 * will be blocksize - offset. On subsequent reads we can read
+		 * blocksize at time until iov_iter_count(to) == 0.
+		 */
 		nr -= offset;
 
 		if (folio) {
 			/*
-			 * If users can be writing to this page using arbitrary
+			 * If users can be writing to this folio using arbitrary
 			 * virtual addresses, take care about potential aliasing
-			 * before reading the page on the kernel side.
+			 * before reading the folio on the kernel side.
 			 */
 			if (mapping_writably_mapped(mapping))
-				flush_dcache_page(page);
+				flush_dcache_folio(folio);
 			/*
-			 * Mark the page accessed if we read the beginning.
+			 * Mark the folio accessed if we read the beginning.
 			 */
 			if (!offset)
 				folio_mark_accessed(folio);
 			/*
-			 * Ok, we have the page, and it's up-to-date, so
+			 * Ok, we have the folio, and it's up-to-date, so
 			 * now we can copy it to user space...
 			 */
-			ret = copy_page_to_iter(page, offset, nr, to);
+			ret = copy_folio_to_iter(folio, offset, nr, to);
 			folio_put(folio);
 
 		} else if (user_backed_iter(to)) {
 			/*
 			 * Copy to user tends to be so well optimized, but
 			 * clear_user() not so much, that it is noticeably
-			 * faster to copy the zero page instead of clearing.
+			 * faster to copy the zero folio instead of clearing.
 			 */
-			ret = copy_page_to_iter(ZERO_PAGE(0), offset, nr, to);
+			ret = copy_folio_to_iter(page_folio(ZERO_PAGE(0)), offset, nr, to);
 		} else {
 			/*
-			 * But submitting the same page twice in a row to
+			 * But submitting the same folio twice in a row to
 			 * splice() - or others? - can result in confusion:
 			 * so don't attempt that optimization on pipes etc.
 			 */
@@ -2775,8 +2807,14 @@ static ssize_t shmem_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 
 		retval += ret;
 		offset += ret;
+
+		/*
+		 * Due to usage of folios per blocksize we know this will
+		 * actually read blocksize at a time after the first block read
+		 * at offset.
+		 */
 		index += offset >> PAGE_SHIFT;
-		offset &= ~PAGE_MASK;
+		offset &= (bsize - 1);
 
 		if (!iov_iter_count(to))
 			break;
