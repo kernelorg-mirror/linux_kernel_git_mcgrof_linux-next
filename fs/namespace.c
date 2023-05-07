@@ -1636,6 +1636,9 @@ static int do_umount(struct mount *mnt, int flags)
 	if (retval)
 		return retval;
 
+	if (!(sb_is_unfrozen(sb)))
+		return -EBUSY;
+
 	/*
 	 * Allow userspace to request a mountpoint be expired rather than
 	 * unmounting unconditionally. Unmount only happens if:

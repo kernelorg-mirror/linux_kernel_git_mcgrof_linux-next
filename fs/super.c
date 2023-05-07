@@ -439,6 +439,7 @@ void retire_super(struct super_block *sb)
 {
 	WARN_ON(!sb->s_bdev);
 	down_write(&sb->s_umount);
+	WARN_ON_ONCE(!(sb_is_unfrozen(sb)));
 	if (sb->s_iflags & SB_I_PERSB_BDI) {
 		bdi_unregister(sb->s_bdi);
 		sb->s_iflags &= ~SB_I_PERSB_BDI;
@@ -466,6 +467,7 @@ void generic_shutdown_super(struct super_block *sb)
 {
 	const struct super_operations *sop = sb->s_op;
 
+	WARN_ON_ONCE(!(sb_is_unfrozen(sb)));
 	if (sb->s_root) {
 		shrink_dcache_for_umount(sb);
 		sync_filesystem(sb);
@@ -1352,6 +1354,12 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 	if (IS_ERR(s))
 		goto error_s;
 
+	if (!(sb_is_unfrozen(s))) {
+			deactivate_locked_super(s);
+			error = -EBUSY;
+			goto error_bdev;
+	}
+
 	if (s->s_root) {
 		if ((flags ^ s->s_flags) & SB_RDONLY) {
 			deactivate_locked_super(s);
@@ -1471,6 +1479,10 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 	s = sget(fs_type, compare_single, set_anon_super, flags, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
+	if (!(sb_is_unfrozen(s))) {
+		deactivate_locked_super(s);
+		return ERR_PTR(-EBUSY);
+	}
 	if (!s->s_root) {
 		error = fill_super(s, data, flags & SB_SILENT ? 1 : 0);
 		if (!error)
@@ -1520,6 +1532,8 @@ int vfs_get_tree(struct fs_context *fc)
 
 	sb = fc->root->d_sb;
 	WARN_ON(!sb->s_bdi);
+	if (!(sb_is_unfrozen(sb)))
+		return -EBUSY;
 
 	/*
 	 * Write barrier is for super_cache_count(). We place it before setting
