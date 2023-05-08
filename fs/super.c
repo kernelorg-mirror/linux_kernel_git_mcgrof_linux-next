@@ -1678,11 +1678,12 @@ int freeze_super(struct super_block *sb, bool usercall)
 	if (!usercall && sb_is_frozen(sb))
 		return 0;
 
+	/* If the filesystem was not going to be mounted there is nothing to do */
+	if (!(sb->s_flags & SB_BORN))
+		return 0;
+
 	if (!sb_is_unfrozen(sb))
 		return -EBUSY;
-
-	if (!(sb->s_flags & SB_BORN))
-		return 0;	/* sic - it's "nothing to do" */
 
 	if (sb_rdonly(sb)) {
 		/* Nothing to do really... */
@@ -1760,6 +1761,10 @@ int thaw_super(struct super_block *sb, bool usercall)
 		if (sb_is_unfrozen(sb) || sb_is_frozen_by_user(sb))
 			return 0;
 	}
+
+	/* If the filesystem was not going to be mounted there is nothing to do */
+	if (!(sb->s_flags & SB_BORN))
+		return 0;
 
 	if (!sb_is_frozen(sb))
 		return -EINVAL;
