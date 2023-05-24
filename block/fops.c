@@ -608,8 +608,12 @@ static int blkdev_release(struct inode *inode, struct file *filp)
 static ssize_t
 blkdev_direct_write(struct kiocb *iocb, struct iov_iter *from)
 {
+	struct block_device *bdev = I_BDEV(iocb->ki_filp->f_mapping->host);
 	size_t count = iov_iter_count(from);
 	ssize_t written;
+
+	if (blkdev_dio_unaligned(bdev, iocb->ki_pos, from))
+                return -EINVAL;
 
 	written = kiocb_invalidate_pages(iocb, count);
 	if (written) {
