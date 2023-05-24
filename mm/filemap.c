@@ -1911,8 +1911,9 @@ repeat:
 		folio_wait_stable(folio);
 no_page:
 	if (!folio && (fgp_flags & FGP_CREAT)) {
-		unsigned order = FGF_GET_ORDER(fgp_flags);
-		int err;
+		int err = -EINVAL;
+		int order = FGF_GET_ORDER(fgp_flags);
+		int min_order = mapping_min_folio_order(mapping);
 
 		if ((fgp_flags & FGP_WRITE) && mapping_can_writeback(mapping))
 			gfp |= __GFP_WRITE;
@@ -1922,6 +1923,7 @@ no_page:
 			gfp &= ~GFP_KERNEL;
 			gfp |= GFP_NOWAIT | __GFP_NOWARN;
 		}
+
 		if (WARN_ON_ONCE(!(fgp_flags & (FGP_LOCK | FGP_FOR_MMAP))))
 			fgp_flags |= FGP_LOCK;
 
@@ -1933,7 +1935,7 @@ no_page:
 		if (index & ((1UL << order) - 1))
 			order = __ffs(index);
 
-		do {
+		while (order >= min_order) {
 			err = -ENOMEM;
 			if (order == 1)
 				order = 0;
@@ -1950,7 +1952,8 @@ no_page:
 				break;
 			folio_put(folio);
 			folio = NULL;
-		} while (order-- > 0);
+			order--;
+		}
 
 		if (err == -EEXIST)
 			goto repeat;
@@ -2496,7 +2499,8 @@ static int filemap_create_folio(struct file *file,
 	struct folio *folio;
 	int error;
 
-	folio = filemap_alloc_folio(mapping_gfp_mask(mapping), 0);
+	folio = filemap_alloc_folio(mapping_gfp_mask(mapping),
+				    mapping_min_folio_order(mapping));
 	if (!folio)
 		return -ENOMEM;
 
@@ -3664,7 +3668,8 @@ static struct folio *do_read_cache_folio(struct address_space *mapping,
 repeat:
 	folio = filemap_get_folio(mapping, index);
 	if (IS_ERR(folio)) {
-		folio = filemap_alloc_folio(gfp, 0);
+		folio = filemap_alloc_folio(gfp,
+					    mapping_min_folio_order(mapping));
 		if (!folio)
 			return ERR_PTR(-ENOMEM);
 		err = filemap_add_folio(mapping, folio, index, gfp);
