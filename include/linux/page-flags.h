@@ -889,6 +889,13 @@ static inline bool is_page_hwpoison(struct page *page)
 	return PageHuge(page) && PageHWPoison(compound_head(page));
 }
 
+static inline bool is_folio_hwpoison(struct folio *folio)
+{
+       if (folio_test_hwpoison(folio))
+               return true;
+       return folio_test_large(folio) && folio_test_has_hwpoisoned(folio);
+}
+
 /*
  * For pages that are never mapped to userspace (and aren't PageSlab),
  * page_type may be used.  Because it is initialised to -1, we invert the
