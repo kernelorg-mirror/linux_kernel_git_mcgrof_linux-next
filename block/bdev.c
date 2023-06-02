@@ -30,9 +30,14 @@
 #include "../fs/internal.h"
 #include "blk.h"
 
+static LIST_HEAD(bdev_inode_list);
+static DEFINE_MUTEX(bdev_inode_mutex);
+
 struct bdev_inode {
 	struct block_device bdev;
 	struct inode vfs_inode;
+	struct vfsmount *bd_mnt;
+	struct list_head list;
 };
 
 static inline struct bdev_inode *BDEV_I(struct inode *inode)
@@ -321,9 +326,27 @@ static struct inode *bdev_alloc_inode(struct super_block *sb)
 	return &ei->vfs_inode;
 }
 
+static void bdev_remove_inode(struct bdev_inode *binode)
+{
+	struct bdev_inode *bdev_inode, *tmp;
+
+	kern_unmount(binode->bd_mnt);
+
+	mutex_lock(&bdev_inode_mutex);
+	list_for_each_entry_safe(bdev_inode, tmp, &bdev_inode_list, list) {
+		if (bdev_inode == binode) {
+			list_del_init(&bdev_inode->list);
+			break;
+		}
+	}
+	mutex_unlock(&bdev_inode_mutex);
+}
+
 static void bdev_free_inode(struct inode *inode)
 {
 	struct block_device *bdev = I_BDEV(inode);
+
+	bdev_remove_inode(BDEV_I(inode));
 
 	free_percpu(bdev->bd_stats);
 	kfree(bdev->bd_meta_info);
@@ -378,12 +401,9 @@ static struct file_system_type bd_type = {
 	.kill_sb	= kill_anon_super,
 };
 
-struct super_block *blockdev_superblock __read_mostly;
-
 void __init bdev_cache_init(void)
 {
 	int err;
-	static struct vfsmount *bd_mnt;
 
 	bdev_cachep = kmem_cache_create("bdev_cache", sizeof(struct bdev_inode),
 			0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
@@ -392,20 +412,23 @@ void __init bdev_cache_init(void)
 	err = register_filesystem(&bd_type);
 	if (err)
 		panic("Cannot register bdev pseudo-fs");
-	bd_mnt = kern_mount(&bd_type);
-	if (IS_ERR(bd_mnt))
-		panic("Cannot create bdev pseudo-fs");
-	blockdev_superblock = bd_mnt->mnt_sb;   /* For writeback */
 }
 
 struct block_device *bdev_alloc(struct gendisk *disk, u8 partno)
 {
+	struct vfsmount *bd_mnt;
 	struct block_device *bdev;
 	struct inode *inode;
 
-	inode = new_inode(blockdev_superblock);
-	if (!inode)
+	bd_mnt = vfs_kern_mount(&bd_type, SB_KERNMOUNT, bd_type.name, NULL);
+	if (IS_ERR(bd_mnt))
 		return NULL;
+
+	inode = new_inode(bd_mnt->mnt_sb);
+	if (!inode) {
+		kern_unmount(bd_mnt);
+		goto err_out;
+	}
 	inode->i_mode = S_IFBLK;
 	inode->i_rdev = 0;
 #ifdef CONFIG_BUFFER_HEAD
@@ -426,12 +449,14 @@ struct block_device *bdev_alloc(struct gendisk *disk, u8 partno)
 	else
 		bdev->bd_has_submit_bio = false;
 	bdev->bd_stats = alloc_percpu(struct disk_stats);
-	if (!bdev->bd_stats) {
-		iput(inode);
-		return NULL;
-	}
+	if (!bdev->bd_stats)
+		goto err_out;
 	bdev->bd_disk = disk;
+	BDEV_I(inode)->bd_mnt = bd_mnt; /* For writeback */
 	return bdev;
+err_out:
+	iput(inode);
+	return NULL;
 }
 
 void bdev_set_nr_sectors(struct block_device *bdev, sector_t sectors)
@@ -444,13 +469,16 @@ void bdev_set_nr_sectors(struct block_device *bdev, sector_t sectors)
 
 void bdev_add(struct block_device *bdev, dev_t dev)
 {
+	struct inode *inode = bdev->bd_inode;
+
 	bdev->bd_dev = dev;
 	bdev->bd_inode->i_rdev = dev;
 	bdev->bd_inode->i_ino = dev;
 	insert_inode_hash(bdev->bd_inode);
+	list_add_tail(&BDEV_I(inode)->list, &bdev_inode_list);
 }
 
-long nr_blockdev_pages(void)
+static long nr_blockdev_pages_sb(struct super_block *blockdev_superblock)
 {
 	struct inode *inode;
 	long ret = 0;
@@ -459,6 +487,19 @@ long nr_blockdev_pages(void)
 	list_for_each_entry(inode, &blockdev_superblock->s_inodes, i_sb_list)
 		ret += inode->i_mapping->nrpages;
 	spin_unlock(&blockdev_superblock->s_inode_list_lock);
+
+	return ret;
+}
+
+long nr_blockdev_pages(void)
+{
+	struct bdev_inode *bdev_inode;
+	long ret = 0;
+
+	mutex_lock(&bdev_inode_mutex);
+	list_for_each_entry(bdev_inode, &bdev_inode_list, list)
+		ret += nr_blockdev_pages_sb(bdev_inode->bd_mnt->mnt_sb);
+	mutex_unlock(&bdev_inode_mutex);
 
 	return ret;
 }
@@ -672,7 +713,18 @@ static void blkdev_put_part(struct block_device *part, fmode_t mode)
 
 static struct inode *blkdev_inode_lookup(dev_t dev)
 {
-	return ilookup(blockdev_superblock, dev);
+	struct bdev_inode *bdev_inode;
+	struct inode *inode = NULL;
+
+	mutex_lock(&bdev_inode_mutex);
+	list_for_each_entry(bdev_inode, &bdev_inode_list, list) {
+		inode = ilookup(bdev_inode->bd_mnt->mnt_sb, dev);
+		if (inode)
+			break;
+	}
+	mutex_unlock(&bdev_inode_mutex);
+
+	return inode;
 }
 
 struct block_device *blkdev_get_no_open(dev_t dev)
@@ -961,7 +1013,7 @@ int __invalidate_device(struct block_device *bdev, bool kill_dirty)
 }
 EXPORT_SYMBOL(__invalidate_device);
 
-void sync_bdevs(bool wait)
+static void sync_bdev_sb(struct super_block *blockdev_superblock, bool wait)
 {
 	struct inode *inode, *old_inode = NULL;
 
@@ -1011,6 +1063,16 @@ void sync_bdevs(bool wait)
 	}
 	spin_unlock(&blockdev_superblock->s_inode_list_lock);
 	iput(old_inode);
+}
+
+void sync_bdevs(bool wait)
+{
+	struct bdev_inode *bdev_inode;
+
+	mutex_lock(&bdev_inode_mutex);
+	list_for_each_entry(bdev_inode, &bdev_inode_list, list)
+		sync_bdev_sb(bdev_inode->bd_mnt->mnt_sb, wait);
+	mutex_unlock(&bdev_inode_mutex);
 }
 
 /*
