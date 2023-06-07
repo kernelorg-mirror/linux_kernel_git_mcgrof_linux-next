@@ -88,6 +88,10 @@ module_param(apst_secondary_latency_tol_us, ulong, 0644);
 MODULE_PARM_DESC(apst_secondary_latency_tol_us,
 	"secondary APST latency tolerance in us");
 
+static unsigned int debug_large_atomics;
+module_param(debug_large_atomics, uint, 0644);
+MODULE_PARM_DESC(debug_large_atomics, "allow large atomics <= awun or nawun <= mdts");
+
 /*
  * nvme_wq - hosts nvme related works that are not reset or delete
  * nvme_reset_wq - hosts nvme reset works
@@ -1931,6 +1935,20 @@ static void nvme_update_disk_info(struct gendisk *disk,
 		 * be aware of out of order reads/writes as npwg and nows
 		 * are purely performance optimizations.
 		 */
+
+		/*
+		 * If you're not concerned about power failure, in theory,
+		 * you should be able to experiment up to awun rather safely.
+		 *
+		 * Ignore qemu awun value of 1.
+		 */
+		if (debug_large_atomics && awun != 1) {
+			debug_large_atomics = min(awun_bs, debug_large_atomics);
+			phys_bs = atomic_bs = debug_large_atomics;
+			dev_info(ns->ctrl->device,
+				 "Forcing large atomic: %u (awun_bs: %u awun: %u)\n",
+				 debug_large_atomics, awun_bs, awun);
+		}
 	}
 
 	blk_queue_logical_block_size(disk->queue, bs);
