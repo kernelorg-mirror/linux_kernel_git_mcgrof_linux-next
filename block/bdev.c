@@ -379,7 +379,6 @@ static struct file_system_type bd_type = {
 };
 
 struct super_block *blockdev_superblock __read_mostly;
-EXPORT_SYMBOL_GPL(blockdev_superblock);
 
 void __init bdev_cache_init(void)
 {

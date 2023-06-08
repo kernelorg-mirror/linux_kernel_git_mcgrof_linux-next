@@ -43,6 +43,7 @@
 #include <linux/cred.h>
 #include <linux/mnt_idmapping.h>
 #include <linux/slab.h>
+#include <uapi/linux/magic.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
@@ -2388,10 +2389,9 @@ extern struct kmem_cache *names_cachep;
 #define __getname()		kmem_cache_alloc(names_cachep, GFP_KERNEL)
 #define __putname(name)		kmem_cache_free(names_cachep, (void *)(name))
 
-extern struct super_block *blockdev_superblock;
 static inline bool sb_is_blkdev_sb(struct super_block *sb)
 {
-	return IS_ENABLED(CONFIG_BLOCK) && sb == blockdev_superblock;
+	return IS_ENABLED(CONFIG_BLOCK) && sb->s_magic == BDEVFS_MAGIC;
 }
 
 void emergency_thaw_all(void);
