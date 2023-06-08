@@ -666,15 +666,20 @@ static void blkdev_put_part(struct block_device *part, fmode_t mode)
 	blkdev_put_whole(whole, mode);
 }
 
+static struct inode *blkdev_inode_lookup(dev_t dev)
+{
+	return ilookup(blockdev_superblock, dev);
+}
+
 struct block_device *blkdev_get_no_open(dev_t dev)
 {
 	struct block_device *bdev;
 	struct inode *inode;
 
-	inode = ilookup(blockdev_superblock, dev);
+	inode = blkdev_inode_lookup(dev);
 	if (!inode && IS_ENABLED(CONFIG_BLOCK_LEGACY_AUTOLOAD)) {
 		blk_request_module(dev);
-		inode = ilookup(blockdev_superblock, dev);
+		inode = blkdev_inode_lookup(dev);
 		if (inode)
 			pr_warn_ratelimited(
 "block device autoloading is deprecated and will be removed.\n");
