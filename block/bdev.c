@@ -136,9 +136,16 @@ static void set_init_blocksize(struct block_device *bdev)
 	bdev->bd_inode->i_blkbits = blksize_bits(bsize);
 	order = bdev->bd_inode->i_blkbits - PAGE_SHIFT;
 	if (order > 0) {
+		/*
+		 * XXX: address flipping back and forth between needing
+		 * or not buffer-heads.
+		 */
 		mapping_set_min_folio_order(bdev->bd_inode->i_mapping, order);
-		bdev->bd_inode->i_data.a_ops = &def_blk_aops_iomap;
+		return;
 	}
+#ifdef CONFIG_BUFFER_HEAD
+	bdev->bd_inode->i_data.a_ops = &def_blk_aops;
+#endif
 }
 
 int set_blocksize(struct block_device *bdev, int size)
@@ -415,7 +422,7 @@ struct block_device *bdev_alloc(struct gendisk *disk, u8 partno)
 		return NULL;
 	inode->i_mode = S_IFBLK;
 	inode->i_rdev = 0;
-	inode->i_data.a_ops = &def_blk_aops;
+	inode->i_data.a_ops = &def_blk_aops_iomap;
 	mapping_set_gfp_mask(&inode->i_data, GFP_USER);
 
 	bdev = I_BDEV(inode);
