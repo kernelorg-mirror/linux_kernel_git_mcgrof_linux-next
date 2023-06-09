@@ -135,10 +135,18 @@ static void set_init_blocksize(struct block_device *bdev)
 	bdev->bd_inode->i_blkbits = blksize_bits(bsize);
 }
 
-int set_blocksize(struct block_device *bdev, int size)
+static int sb_size_limit(struct super_block *sb)
 {
-	/* Size must be a power of two, and between 512 and PAGE_SIZE */
-	if (size > PAGE_SIZE || size < 512 || !is_power_of_2(size))
+	if (!sb || sb->s_type->fs_flags & FS_BUFFER_HEADS)
+		return PAGE_SIZE;
+	return 1 << (PAGE_SHIFT + MAX_PAGECACHE_ORDER);
+}
+
+static int set_blocksize_on_sb(struct super_block *sb, struct block_device *bdev,
+			       int size)
+{
+	/* Size must be a power of two, and between 512 and supported order */
+	if (size > sb_size_limit(sb) || size < 512 || !is_power_of_2(size))
 		return -EINVAL;
 
 	/* Size cannot be smaller than the size supported by the device */
@@ -154,11 +162,16 @@ int set_blocksize(struct block_device *bdev, int size)
 	return 0;
 }
 
+int set_blocksize(struct block_device *bdev, int size)
+{
+	return set_blocksize_on_sb(NULL, bdev, size);
+}
+
 EXPORT_SYMBOL(set_blocksize);
 
 int sb_set_blocksize(struct super_block *sb, int size)
 {
-	if (set_blocksize(sb->s_bdev, size))
+	if (set_blocksize_on_sb(sb, sb->s_bdev, size))
 		return 0;
 	/* If we get here, we know size is power of two
 	 * and it's value is between 512 and PAGE_SIZE */
