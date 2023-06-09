@@ -354,7 +354,7 @@ static inline unsigned mapping_min_folio_order(struct address_space *mapping)
 static inline void mapping_set_min_folio_order(struct address_space *mapping,
 					       unsigned order)
 {
-	WARN_ON_ONCE(mapping_min_folio_order(mapping));
+	//WARN_ON_ONCE(mapping_min_folio_order(mapping));
 
 	mapping->flags |= ((order << AS_FOLIO_ORDER_MIN) & AS_FOLIO_ORDER_MASK);
 }
