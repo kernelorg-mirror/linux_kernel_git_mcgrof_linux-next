@@ -1446,6 +1446,8 @@ static inline void bio_end_io_acct(struct bio *bio, unsigned long start_time)
 }
 
 int bdev_read_only(struct block_device *bdev);
+int set_blocksize_on_sb(struct super_block *sb, struct block_device *bdev,
+                        int size);
 int set_blocksize(struct block_device *bdev, int size);
 
 int lookup_bdev(const char *pathname, dev_t *dev);
