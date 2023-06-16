@@ -65,7 +65,7 @@ static struct file_system_type efs_fs_type = {
 	.owner			= THIS_MODULE,
 	.name			= "efs",
 	.kill_sb		= efs_kill_sb,
-	.fs_flags		= FS_REQUIRES_DEV,
+	.fs_flags		= FS_REQUIRES_DEV | FS_BUFFER_HEADS,
 	.init_fs_context	= efs_init_fs_context,
 	.parameters		= efs_param_spec,
 };

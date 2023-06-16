@@ -139,7 +139,7 @@ static struct file_system_type udf_fstype = {
 	.owner		= THIS_MODULE,
 	.name		= "udf",
 	.kill_sb	= kill_block_super,
-	.fs_flags	= FS_REQUIRES_DEV,
+	.fs_flags	= FS_REQUIRES_DEV | FS_BUFFER_HEADS,
 	.init_fs_context = udf_init_fs_context,
 	.parameters	= udf_param_spec,
 };

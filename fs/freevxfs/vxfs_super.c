@@ -305,7 +305,7 @@ static struct file_system_type vxfs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= "vxfs",
 	.kill_sb	= kill_block_super,
-	.fs_flags	= FS_REQUIRES_DEV,
+	.fs_flags	= FS_REQUIRES_DEV | FS_BUFFER_HEADS,
 	.init_fs_context = vxfs_init_fs_context,
 };
 MODULE_ALIAS_FS("vxfs"); /* makes mount -t vxfs autoload the module */
