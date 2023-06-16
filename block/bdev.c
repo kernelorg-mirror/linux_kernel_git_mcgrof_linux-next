@@ -137,6 +137,9 @@ static void set_init_blocksize(struct block_device *bdev)
 	order = bdev->bd_inode->i_blkbits - PAGE_SHIFT;
 	folio_order = mapping_min_folio_order(bdev->bd_inode->i_mapping);
 	if (order > 0 && folio_order == 0) {
+#ifdef CONFIG_BUFFER_HEAD
+		WARN_ON_ONCE(atomic_read(&bdev->bd_buffer_head_mounted));
+#endif
 		mapping_set_min_folio_order(bdev->bd_inode->i_mapping, order);
 		bdev->bd_inode->i_data.a_ops = &def_blk_aops_iomap;
 	}
@@ -149,6 +152,70 @@ static int bdev_bsize_limit(struct block_device *bdev)
 		return 1 << 21;
 	return PAGE_SIZE;
 }
+
+#ifdef CONFIG_BUFFER_HEAD
+static int sb_set_bdev_aops(struct super_block *sb)
+{
+	struct block_device *bdev = sb->s_bdev;
+	bool uses_buffer_head = bdev->bd_inode->i_data.a_ops == &def_blk_aops;
+
+	/*
+	 * If you're a fs which does not require buffer-heads and no buffer-head
+	 * fs exist on the block device  let's ensure iomap is used.
+	 */
+	if (!(sb->s_type->fs_flags & FS_BUFFER_HEADS)) {
+		/*
+		 * If no filesystems which require buffer-head are mounted
+		 * let's ensure iomap is used. If iomap is already set
+		 * nothing to do.
+		 */
+		if (!atomic_read(&bdev->bd_buffer_head_mounted)) {
+			if (uses_buffer_head) {
+				sync_blockdev(bdev);
+				bdev->bd_inode->i_data.a_ops = &def_blk_aops_iomap;
+				kill_bdev(bdev);
+			}
+			return 0;
+		}
+		/*
+		 * If the filesystem does not require buffer-heads the
+		 * filesystem may still work with buffer-heads on the bdev
+		 * inode aops, however, there will be blocksize limitations.
+		 * Those however are checked later on set_blocksize().
+		 */
+		return 0;
+	}
+
+	/*
+	 * We are not dealing with a filesystem which requires buffer-heads.
+	 * If at least one buffer-head filesystem is already present on the bdev
+	 * then we are done.
+	 */
+	if (atomic_read(&bdev->bd_buffer_head_mounted))
+		return 0;
+
+	/* high order folios are only supported with iomap */
+	if (mapping_min_folio_order(bdev->bd_inode->i_mapping) != 0)
+		return -EINVAL;
+
+	/*
+	 * If a buffer-head filesystem is about to be mounted and we already
+	 * use buffer-heads there is nothing to do.
+	 */
+	if (uses_buffer_head)
+		return 0;
+
+	sync_blockdev(bdev);
+	bdev->bd_inode->i_data.a_ops = &def_blk_aops;
+	kill_bdev(bdev);
+	return 0;
+}
+#else
+static int sb_set_bdev_aops(struct super_block *sb)
+{
+	return 0;
+}
+#endif
 
 int set_blocksize(struct block_device *bdev, int size)
 {
@@ -173,6 +240,8 @@ EXPORT_SYMBOL(set_blocksize);
 
 int sb_set_blocksize(struct super_block *sb, int size)
 {
+	if (sb_set_bdev_aops(sb))
+		return 0;
 	if (set_blocksize(sb->s_bdev, size))
 		return 0;
 	/* If we get here, we know size is power of two
@@ -424,11 +493,7 @@ struct block_device *bdev_alloc(struct gendisk *disk, u8 partno)
 		return NULL;
 	inode->i_mode = S_IFBLK;
 	inode->i_rdev = 0;
-#ifdef CONFIG_BUFFER_HEAD
-	inode->i_data.a_ops = &def_blk_aops;
-#else
 	inode->i_data.a_ops = &def_blk_aops_iomap;
-#endif
 	mapping_set_gfp_mask(&inode->i_data, GFP_USER);
 
 	bdev = I_BDEV(inode);

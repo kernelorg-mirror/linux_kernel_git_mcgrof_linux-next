@@ -50,6 +50,9 @@ struct block_device {
 	bool			bd_has_submit_bio;
 	dev_t			bd_dev;
 	atomic_t		bd_openers;
+#ifdef CONFIG_BUFFER_HEAD
+	atomic_t		bd_buffer_head_mounted;
+#endif
 	spinlock_t		bd_size_lock; /* for bd_inode->i_size updates */
 	struct inode *		bd_inode;	/* will die */
 	struct super_block *	bd_super;

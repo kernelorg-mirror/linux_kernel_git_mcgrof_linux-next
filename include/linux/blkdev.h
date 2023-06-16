@@ -781,6 +781,28 @@ static inline u64 sb_bdev_nr_blocks(struct super_block *sb)
 		(sb->s_blocksize_bits - SECTOR_SHIFT);
 }
 
+#ifdef CONFIG_BUFFER_HEAD
+static inline void sb_bdev_aops_get(struct super_block *sb)
+{
+	if (sb->s_type->fs_flags & FS_BUFFER_HEADS)
+		atomic_inc(&sb->s_bdev->bd_buffer_head_mounted);
+}
+
+static inline void sb_bdev_aops_put(struct super_block *sb)
+{
+	if (sb->s_type->fs_flags & FS_BUFFER_HEADS)
+		atomic_dec(&sb->s_bdev->bd_buffer_head_mounted);
+}
+#else
+static inline void sb_bdev_aops_get(struct super_block *sb)
+{
+}
+
+static inline void sb_bdev_aops_put(struct super_block *sb)
+{
+}
+#endif /* CONFIG_BUFFER_HEAD */
+
 int bdev_disk_changed(struct gendisk *disk, bool invalidate);
 
 void put_disk(struct gendisk *disk);
