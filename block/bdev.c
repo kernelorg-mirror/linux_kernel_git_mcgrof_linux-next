@@ -140,6 +140,7 @@ static void set_init_blocksize(struct block_device *bdev)
 {
 	unsigned int bsize = bdev_logical_block_size(bdev);
 	loff_t size = i_size_read(BD_INODE(bdev));
+	int order, folio_order;
 
 	while (bsize < PAGE_SIZE) {
 		if (size & bsize)
@@ -147,6 +148,12 @@ static void set_init_blocksize(struct block_device *bdev)
 		bsize <<= 1;
 	}
 	BD_INODE(bdev)->i_blkbits = blksize_bits(bsize);
+	order = BD_INODE(bdev)->i_blkbits - PAGE_SHIFT;
+	folio_order = mapping_min_folio_order(BD_INODE(bdev)->i_mapping);
+	if (order > 0 && folio_order == 0) {
+		mapping_set_folio_min_order(BD_INODE(bdev)->i_mapping, order);
+		BD_INODE(bdev)->i_data.a_ops = &def_blk_aops_iomap;
+	}
 }
 
 int set_blocksize(struct file *file, int size)
