@@ -1495,6 +1495,13 @@ void sync_bdevs(bool wait);
 void bdev_statx_dioalign(struct inode *inode, struct kstat *stat);
 void printk_all_partitions(void);
 int __init early_lookup_bdev(const char *pathname, dev_t *dev);
+#ifdef CONFIG_BUFFER_HEAD
+void bdev_aops_reset(struct block_device *bdev);
+#else
+void bdev_aops_reset(struct block_device *bdev)
+{
+}
+#endif
 #else
 static inline void invalidate_bdev(struct block_device *bdev)
 {
@@ -1519,6 +1526,9 @@ static inline void printk_all_partitions(void)
 static inline int early_lookup_bdev(const char *pathname, dev_t *dev)
 {
 	return -EINVAL;
+}
+void bdev_aops_reset(struct block_device *bdev)
+{
 }
 #endif /* CONFIG_BLOCK */
 

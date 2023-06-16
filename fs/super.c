@@ -1416,6 +1416,7 @@ error:
 }
 EXPORT_SYMBOL(mount_bdev);
 
+void bdev_aops_reset(struct block_device *bdev);
 void kill_block_super(struct super_block *sb)
 {
 	struct block_device *bdev = sb->s_bdev;
@@ -1423,6 +1424,7 @@ void kill_block_super(struct super_block *sb)
 	bdev->bd_super = NULL;
 	generic_shutdown_super(sb);
 	sync_blockdev(bdev);
+	bdev_aops_reset(bdev);
 	blkdev_put(bdev, sb->s_type);
 }
 
