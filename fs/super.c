@@ -1330,6 +1330,7 @@ int get_tree_bdev(struct fs_context *fc,
 
 		s->s_flags |= SB_ACTIVE;
 		bdev->bd_super = s;
+		sb_bdev_aops_get(s);
 	}
 
 	BUG_ON(fc->root);
@@ -1403,6 +1404,7 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 
 		s->s_flags |= SB_ACTIVE;
 		bdev->bd_super = s;
+		sb_bdev_aops_get(s);
 	}
 
 	return dget(s->s_root);
@@ -1423,6 +1425,7 @@ void kill_block_super(struct super_block *sb)
 	bdev->bd_super = NULL;
 	generic_shutdown_super(sb);
 	sync_blockdev(bdev);
+	sb_bdev_aops_put(sb);
 	blkdev_put(bdev, sb->s_type);
 }
 
