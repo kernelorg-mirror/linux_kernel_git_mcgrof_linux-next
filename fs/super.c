@@ -1685,12 +1685,13 @@ void kill_block_super(struct super_block *sb)
 	generic_shutdown_super(sb);
 	if (bdev) {
 		sync_blockdev(bdev);
+		bdev_aops_reset(bdev);
 		bdev_fput(sb->s_bdev_file);
 	}
 }
 
 EXPORT_SYMBOL(kill_block_super);
-#endif
+#endif /* CONFIG_BLOCK */
 
 struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int flags, void *data,

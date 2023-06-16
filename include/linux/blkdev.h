@@ -1629,6 +1629,13 @@ void bdev_statx(struct inode *backing_inode, struct kstat *stat,
 		u32 request_mask);
 void printk_all_partitions(void);
 int __init early_lookup_bdev(const char *pathname, dev_t *dev);
+#ifdef CONFIG_BUFFER_HEAD
+void bdev_aops_reset(struct block_device *bdev);
+#else
+static inline void bdev_aops_reset(struct block_device *bdev)
+{
+}
+#endif
 #else
 static inline void invalidate_bdev(struct block_device *bdev)
 {
