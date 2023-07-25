@@ -468,11 +468,15 @@ EXPORT_SYMBOL_GPL(iomap_is_partially_uptodate);
 struct folio *iomap_get_folio(struct iomap_iter *iter, loff_t pos)
 {
 	unsigned fgp = FGP_WRITEBEGIN | FGP_NOFS;
+	int order = mapping_min_folio_order(iter->inode->i_mapping);
+	int nr_of_pages = (1U << order);
+	pgoff_t page_idx = round_down(pos >> PAGE_SHIFT, nr_of_pages);
+
 
 	if (iter->flags & IOMAP_NOWAIT)
 		fgp |= FGP_NOWAIT;
 
-	return __filemap_get_folio(iter->inode->i_mapping, pos >> PAGE_SHIFT,
+	return __filemap_get_folio(iter->inode->i_mapping, page_idx,
 			fgp, mapping_gfp_mask(iter->inode->i_mapping));
 }
 EXPORT_SYMBOL_GPL(iomap_get_folio);
@@ -777,17 +781,18 @@ static loff_t iomap_write_iter(struct iomap_iter *iter, struct iov_iter *i)
 	ssize_t written = 0;
 	long status = 0;
 	struct address_space *mapping = iter->inode->i_mapping;
+	int min_order = mapping_min_folio_order(mapping);
+	unsigned int min_folio_size = PAGE_SIZE << min_order;
 	unsigned int bdp_flags = (iter->flags & IOMAP_NOWAIT) ? BDP_ASYNC : 0;
 
 	do {
 		struct folio *folio;
-		struct page *page;
 		unsigned long offset;	/* Offset into pagecache page */
 		unsigned long bytes;	/* Bytes to write to page */
 		size_t copied;		/* Bytes copied from user */
 
-		offset = offset_in_page(pos);
-		bytes = min_t(unsigned long, PAGE_SIZE - offset,
+		offset = pos & (min_folio_size - 1);
+		bytes = min_t(unsigned long, min_folio_size - offset,
 						iov_iter_count(i));
 again:
 		status = balance_dirty_pages_ratelimited_flags(mapping,
@@ -819,11 +824,11 @@ again:
 		if (iter->iomap.flags & IOMAP_F_STALE)
 			break;
 
-		page = folio_file_page(folio, pos >> PAGE_SHIFT);
 		if (mapping_writably_mapped(mapping))
-			flush_dcache_page(page);
+			flush_dcache_folio(folio);
 
-		copied = copy_page_from_iter_atomic(page, offset, bytes, i);
+		// XXX: add a copy_folio_from_iter_atomic helper
+		copied = copy_page_from_iter_atomic(&folio->page, offset, bytes, i);
 
 		status = iomap_write_end(iter, pos, bytes, copied, folio);
 
