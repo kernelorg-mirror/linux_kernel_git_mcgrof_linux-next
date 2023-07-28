@@ -1882,7 +1882,10 @@ struct folio *__filemap_get_folio(struct address_space *mapping, pgoff_t index,
 		int fgp_flags, gfp_t gfp)
 {
 	struct folio *folio;
-
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
+	if (order > 0)
+		index = round_down(index, nrpages);
 repeat:
 	folio = filemap_get_entry(mapping, index);
 	if (xa_is_value(folio))
@@ -2340,6 +2343,11 @@ static void filemap_get_read_batch(struct address_space *mapping,
 {
 	XA_STATE(xas, &mapping->i_pages, index);
 	struct folio *folio;
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
+
+	if (order > 0)
+		max = round_up(max, nrpages);
 
 	rcu_read_lock();
 	for (folio = xas_load(&xas); folio; folio = xas_next(&xas)) {
@@ -2534,10 +2542,16 @@ static int filemap_readahead(struct kiocb *iocb, struct file *file,
 		struct address_space *mapping, struct folio *folio,
 		pgoff_t last_index)
 {
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 	DEFINE_READAHEAD(ractl, file, &file->f_ra, mapping, folio->index);
 
 	if (iocb->ki_flags & IOCB_NOIO)
 		return -EAGAIN;
+
+	if (order > 0)
+		last_index = round_up(last_index, nrpages);
+
 	page_cache_async_ra(&ractl, folio, last_index - folio->index);
 	return 0;
 }
@@ -2560,6 +2574,8 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
 
 	/* "last_index" is the index of the page beyond the end of the read */
 	last_index = DIV_ROUND_UP(iocb->ki_pos + count, PAGE_SIZE);
+	if (order > 0)
+		last_index = round_up(last_index, nrpages);
 retry:
 	if (fatal_signal_pending(current))
 		return -EINTR;
@@ -3160,6 +3176,8 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 	struct file *fpin = NULL;
 	unsigned long vm_flags = vmf->vma->vm_flags;
 	unsigned int mmap_miss;
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	/* Use the readahead code, even if readahead is disabled */
@@ -3211,6 +3229,8 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 	ra->size = ra->ra_pages;
 	ra->async_size = ra->ra_pages / 4;
 	ractl._index = ra->start;
+	if (order > 0)
+		ractl._index = round_down(ractl._index, nrpages);
 	page_cache_ra_order(&ractl, ra, 0);
 	return fpin;
 }
