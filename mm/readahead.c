@@ -323,12 +323,10 @@ void force_page_cache_ra(struct readahead_control *ractl,
 	 * be up to the optimal hardware IO size
 	 */
 	index = readahead_index(ractl);
-	if (folio_order && (index & (nr_of_pages - 1))) {
-		unsigned long old_index = index;
 
-		index = round_down(index, nr_of_pages);
-		nr_to_read += (old_index - index);
-	}
+	/* Ensure alignment to the min order */
+	index = round_down(index, nr_of_pages);
+	nr_to_read = round_up(nr_to_read, nr_of_pages);
 
 	max_pages = max_t(unsigned long, bdi->io_pages, ra->ra_pages);
 	nr_to_read = min_t(unsigned long, nr_to_read, max_pages);
