@@ -206,10 +206,11 @@ void page_cache_ra_unbounded(struct readahead_control *ractl,
 		unsigned long nr_to_read, unsigned long lookahead_size)
 {
 	struct address_space *mapping = ractl->mapping;
-	unsigned long index = readahead_index(ractl);
+	unsigned int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
+	unsigned long index = round_down(readahead_index(ractl), nrpages);
 	gfp_t gfp_mask = readahead_gfp_mask(mapping);
 	unsigned long i;
-
 	/*
 	 * Partway through the readahead operation, we will have added
 	 * locked pages to the page cache, but will not yet have submitted
@@ -222,45 +223,53 @@ void page_cache_ra_unbounded(struct readahead_control *ractl,
 	 */
 	unsigned int nofs = memalloc_nofs_save();
 
+	nr_to_read = round_up(nr_to_read, nrpages);
+
 	filemap_invalidate_lock_shared(mapping);
 	/*
 	 * Preallocate as many pages as we will need.
 	 */
 	for (i = 0; i < nr_to_read; i++) {
-		struct folio *folio = xa_load(&mapping->i_pages, index + i);
+		unsigned long cur_idx = round_down(index + (i * nrpages), nrpages);
+		struct folio *folio = xa_load(&mapping->i_pages, cur_idx);
 
 		if (folio && !xa_is_value(folio)) {
 			/*
-			 * Page already present?  Kick off the current batch
-			 * of contiguous pages before continuing with the
-			 * next batch.  This page may be the one we would
+			 * Folio already present?  Kick off the current batch
+			 * of contiguous folios before continuing with the
+			 * next batch.  This folio may be the one we would
 			 * have intended to mark as Readahead, but we don't
 			 * have a stable reference to this page, and it's
 			 * not worth getting one just for that.
 			 */
+
 			read_pages(ractl);
-			ractl->_index++;
-			i = ractl->_index + ractl->_nr_pages - index - 1;
+			ractl->_index += folio_nr_pages(folio);
+			/*
+			 * The folio may be larger, if so the read for it
+			 * may have been from another random write so
+			 * we bail readahead then.
+			 */
+			if (folio_nr_pages(folio) != nrpages) {
+				ractl->_nr_pages += folio_nr_pages(folio) - nrpages;
+				break;
+			}
 			continue;
 		}
 
-		folio = filemap_alloc_folio(gfp_mask,
-					    mapping_min_folio_order(mapping));
+		folio = filemap_alloc_folio(gfp_mask, order);
 		if (!folio)
 			break;
-		if (filemap_add_folio(mapping, folio, index + i,
-					gfp_mask) < 0) {
+		if (filemap_add_folio(mapping, folio, cur_idx, gfp_mask) < 0) {
 			folio_put(folio);
 			read_pages(ractl);
-			ractl->_index++;
-			i = ractl->_index + ractl->_nr_pages - index - 1;
+			ractl->_index += nrpages;
 			continue;
 		}
 		if (i == nr_to_read - lookahead_size)
 			folio_set_readahead(folio);
 		ractl->_workingset |= folio_test_workingset(folio);
 		ractl->_nr_pages += folio_nr_pages(folio);
-		i += folio_nr_pages(folio) - 1;
 	}
 
 	/*
