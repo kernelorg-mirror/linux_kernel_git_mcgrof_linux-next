@@ -3306,7 +3306,12 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 	if (order > 0)
 		fol_index = round_down(fol_index, nrpages);
 
+	/*
+	 * max_idx is the index of the page beyond the end of the read, not
+	 * inclusive.
+	*/
 	max_idx = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	max_idx = round_up(max_idx, nrpages);
 	if (unlikely(index >= max_idx))
 		return VM_FAULT_SIGBUS;
 
@@ -3398,6 +3403,7 @@ retry_find:
 	 * We must recheck i_size under page lock.
 	 */
 	max_idx = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	max_idx = round_up(max_idx, nrpages);
 	if (unlikely(index >= max_idx)) {
 		folio_unlock(folio);
 		folio_put(folio);
