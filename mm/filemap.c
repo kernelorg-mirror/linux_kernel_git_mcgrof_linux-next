@@ -3485,6 +3485,8 @@ static struct folio *next_uptodate_page(struct folio *folio,
 				       struct xa_state *xas, pgoff_t end_pgoff)
 {
 	unsigned long max_idx;
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 
 	do {
 		if (!folio)
@@ -3511,6 +3513,12 @@ static struct folio *next_uptodate_page(struct folio *folio,
 		max_idx = DIV_ROUND_UP(i_size_read(mapping->host), PAGE_SIZE);
 		if (xas->xa_index >= max_idx)
 			goto unlock;
+
+		if (folio_nr_pages(folio) < nrpages) {
+			pr_warn_once("filemap_map_pages(): min nrpages: %u got: %lu\n", nrpages, folio_nr_pages(folio));
+			goto unlock;
+		}
+
 		return folio;
 unlock:
 		folio_unlock(folio);
