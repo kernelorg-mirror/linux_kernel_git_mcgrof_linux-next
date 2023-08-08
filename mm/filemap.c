@@ -1884,8 +1884,8 @@ struct folio *__filemap_get_folio(struct address_space *mapping, pgoff_t index,
 	struct folio *folio;
 	int order = mapping_min_folio_order(mapping);
 	unsigned int nrpages = 1U << order;
-	if (order > 0)
-		index = round_down(index, nrpages);
+
+	index = round_down(index, nrpages);
 repeat:
 	folio = filemap_get_entry(mapping, index);
 	if (xa_is_value(folio))
@@ -2569,13 +2569,11 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
 	unsigned int nrpages = 1U << order;
 	int err = 0;
 
-	if (order > 0)
-		index = round_down(index, nrpages);
+	index = round_down(index, nrpages);
 
 	/* "last_index" is the index of the page beyond the end of the read */
 	last_index = DIV_ROUND_UP(iocb->ki_pos + count, PAGE_SIZE);
-	if (order > 0)
-		last_index = round_up(last_index, nrpages);
+	last_index = round_up(last_index, nrpages);
 retry:
 	if (fatal_signal_pending(current))
 		return -EINTR;
@@ -3230,8 +3228,7 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 	ra->size = ra->ra_pages;
 	ra->async_size = ra->ra_pages / 4;
 	ractl._index = ra->start;
-	if (order > 0)
-		ractl._index = round_down(ractl._index, nrpages);
+	ractl._index = round_down(ractl._index, nrpages);
 	page_cache_ra_order(&ractl, ra, 0);
 	return fpin;
 }
