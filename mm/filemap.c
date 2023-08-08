@@ -3407,6 +3407,13 @@ retry_find:
 		return VM_FAULT_SIGBUS;
 	}
 
+	if (unlikely(folio_nr_pages(folio) < nrpages)) {
+		pr_warn_once("filemap_fault(): min nrpages: %u got: %lu\n", nrpages, folio_nr_pages(folio));
+		folio_unlock(folio);
+		folio_put(folio);
+		return VM_FAULT_SIGBUS;
+	}
+
 	vmf->page = folio_file_page(folio, index);
 	return ret | VM_FAULT_LOCKED;
 
