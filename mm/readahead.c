@@ -571,12 +571,18 @@ static void ondemand_readahead(struct readahead_control *ractl,
 		struct folio *folio, unsigned long req_size)
 {
 	struct backing_dev_info *bdi = inode_to_bdi(ractl->mapping->host);
+	struct address_space *mapping = ractl->mapping;
+	unsigned int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 	struct file_ra_state *ra = ractl->ra;
 	unsigned long max_pages = ra->ra_pages;
 	unsigned long add_pages;
 	pgoff_t index = readahead_index(ractl);
 	pgoff_t expected, prev_index;
-	unsigned int order = folio ? folio_order(folio) : 0;
+
+	WARN_ON_ONCE(index & ((nrpages) - 1));
+	if (folio)
+		order = max(folio_order(folio), order);
 
 	/*
 	 * If the request exceeds the readahead window, allow the read to
