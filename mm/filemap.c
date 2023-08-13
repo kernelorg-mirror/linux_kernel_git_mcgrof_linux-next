@@ -2546,6 +2546,8 @@ static int filemap_readahead(struct kiocb *iocb, struct file *file,
 	unsigned int nrpages = 1U << order;
 	DEFINE_READAHEAD(ractl, file, &file->f_ra, mapping, folio->index);
 
+	WARN_ON_ONCE(folio->index & (nrpages - 1));
+
 	if (iocb->ki_flags & IOCB_NOIO)
 		return -EAGAIN;
 
