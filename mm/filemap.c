@@ -2551,9 +2551,6 @@ static int filemap_readahead(struct kiocb *iocb, struct file *file,
 	if (iocb->ki_flags & IOCB_NOIO)
 		return -EAGAIN;
 
-	if (order > 0)
-		last_index = round_up(last_index, nrpages);
-
 	page_cache_async_ra(&ractl, folio, last_index - folio->index);
 	return 0;
 }
@@ -2573,7 +2570,10 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
 
 	index = round_down(index, nrpages);
 
-	/* "last_index" is the index of the page beyond the end of the read */
+	/*
+	 * "last_index" is the index of the page beyond the end of the read,
+	 * its inclusive.
+	 */
 	last_index = DIV_ROUND_UP(iocb->ki_pos + count, PAGE_SIZE);
 	last_index = round_up(last_index, nrpages);
 retry:
