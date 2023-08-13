@@ -470,11 +470,7 @@ struct folio *iomap_get_folio(struct iomap_iter *iter, loff_t pos)
 	unsigned fgp = FGP_WRITEBEGIN | FGP_NOFS;
 	int order = mapping_min_folio_order(iter->inode->i_mapping);
 	int nr_of_pages = (1U << order);
-	pgoff_t page_idx = pos >> PAGE_SHIFT;
-
-	if (order > 0)
-		page_idx = round_down(page_idx, nr_of_pages);
-
+	pgoff_t page_idx = round_down(pos >> PAGE_SHIFT, nr_of_pages);
 
 	if (iter->flags & IOMAP_NOWAIT)
 		fgp |= FGP_NOWAIT;
