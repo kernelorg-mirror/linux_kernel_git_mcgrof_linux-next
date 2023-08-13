@@ -3172,7 +3172,7 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 	struct address_space *mapping = file->f_mapping;
 	int order = mapping_min_folio_order(mapping);
 	unsigned int nrpages = 1U << order;
-	pgoff_t index = order > 0 ? round_down(vmf->pgoff, nrpages) : vmf->pgoff;
+	pgoff_t index = round_down(vmf->pgoff, nrpages);
 	DEFINE_READAHEAD(ractl, file, ra, mapping, index);
 	struct file *fpin = NULL;
 	unsigned long vm_flags = vmf->vma->vm_flags;
