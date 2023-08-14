@@ -4646,11 +4646,17 @@ static vm_fault_t do_fault_around(struct vm_fault *vmf)
 /* Return true if we should do read fault-around, false otherwise */
 static inline bool should_fault_around(struct vm_fault *vmf)
 {
+	struct vm_area_struct *vma = vmf->vma;
+	struct address_space *mapping = vma->vm_file ? vma->vm_file->f_mapping : NULL;
+
 	/* No ->map_pages?  No way to fault around... */
 	if (!vmf->vma->vm_ops->map_pages)
 		return false;
 
 	if (uffd_disable_fault_around(vmf->vma))
+		return false;
+
+	if (mapping && mapping_min_folio_order(mapping))
 		return false;
 
 	/* A single page implies no faulting 'around' at all. */
