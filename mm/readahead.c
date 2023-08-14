@@ -354,6 +354,7 @@ void force_page_cache_ra(struct readahead_control *ractl,
 
 	max_pages = max_t(unsigned long, bdi->io_pages, ra->ra_pages);
 	nr_to_read = min_t(unsigned long, nr_to_read, max_pages);
+	WARN_ON_ONCE(nr_to_read == 0);
 	while (nr_to_read) {
 		unsigned long this_chunk = nr_of_pages * 512;
 
