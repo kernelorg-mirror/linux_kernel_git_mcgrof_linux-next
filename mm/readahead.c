@@ -537,8 +537,10 @@ void page_cache_ra_order(struct readahead_control *ractl,
 		struct file_ra_state *ra, unsigned int new_order)
 {
 	struct address_space *mapping = ractl->mapping;
-	pgoff_t index = readahead_index(ractl);
-	pgoff_t limit = (i_size_read(mapping->host) - 1) >> PAGE_SHIFT;
+	unsigned int min_order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << min_order;
+	pgoff_t index = round_down(readahead_index(ractl), nrpages);;
+	pgoff_t limit;
 	pgoff_t mark = index + ra->size - ra->async_size;
 	int err = 0;
 	gfp_t gfp = readahead_gfp_mask(mapping);
@@ -546,7 +548,15 @@ void page_cache_ra_order(struct readahead_control *ractl,
 	if (!mapping_large_folio_support(mapping) || ra->size < 4)
 		goto fallback;
 
-	limit = min(limit, index + ra->size - 1);
+	/* Limit here is exclusive */
+	limit = DIV_ROUND_UP(i_size_read(mapping->host), PAGE_SIZE);
+	limit = round_up(limit, nrpages);
+
+	/* This will now be the last inclusive valid folio index for this file */
+	limit -= nrpages;
+
+	/* Now ensure we get the last valid index for our readahead window */
+	limit = min(limit, round_down(index + ra->size, nrpages));
 
 	if (new_order < MAX_PAGECACHE_ORDER) {
 		new_order += 2;
@@ -554,22 +564,26 @@ void page_cache_ra_order(struct readahead_control *ractl,
 			new_order = MAX_PAGECACHE_ORDER;
 		while ((1 << new_order) > ra->size)
 			new_order--;
-	}
+	} else
+		BUG_ON(1);
 
 	filemap_invalidate_lock_shared(mapping);
 	while (index <= limit) {
 		unsigned int order = new_order;
-
 		/* Align with smaller pages if needed */
 		if (index & ((1UL << order) - 1)) {
 			order = __ffs(index);
-			if (order == 1)
-				order = 0;
+			if (order == 1 || order < min_order)
+				order = min_order;
 		}
 		/* Don't allocate pages past EOF */
-		while (index + (1UL << order) - 1 > limit) {
-			if (--order == 1)
-				order = 0;
+		while (index + (1UL << order) - nrpages > limit) {
+			if (min_order == 2)
+				printk("page_cache_ra_order() order try: %u\n", order);
+			if (--order == 1 || order < min_order)
+				order = min_order;
+			if (min_order == 2)
+				printk("page_cache_ra_order() order set: %u\n", order);
 		}
 		err = ra_alloc_folio(ractl, index, mark, order, gfp);
 		if (err)
@@ -578,8 +592,8 @@ void page_cache_ra_order(struct readahead_control *ractl,
 	}
 
 	if (index > limit) {
-		ra->size += index - limit - 1;
-		ra->async_size += index - limit - 1;
+		ra->size += index - limit - nrpages;
+		ra->async_size += index - limit - nrpages;
 	}
 
 	read_pages(ractl);

@@ -3227,12 +3227,27 @@ static struct file *do_sync_mmap_readahead(struct vm_fault *vmf)
 	 * mmap read-around
 	 */
 	fpin = maybe_unlock_mmap_for_io(vmf, fpin);
-	ra->start = max_t(long, 0, vmf->pgoff - ra->ra_pages / 2);
-	ra->size = ra->ra_pages;
-	ra->async_size = ra->ra_pages / 4;
-	ractl._index = ra->start;
-	ractl._index = round_down(ractl._index, nrpages);
-	page_cache_ra_order(&ractl, ra, 0);
+	if (order > 0) {
+		if (vmf->pgoff > nrpages)
+			ra->start = 0;
+		else
+			ra->start = max_t(long, 0, vmf->pgoff - nrpages);
+		ra->start = round_down(ra->start, nrpages);
+		ra->size = ra->ra_pages;
+		ra->async_size = nrpages;
+		ractl._index = ra->start;
+	} else {
+		ra->start = max_t(long, 0, vmf->pgoff - ra->ra_pages / 2);
+		ra->size = ra->ra_pages;
+		ra->async_size = ra->ra_pages / 4;
+		ractl._index = ra->start;
+		ractl._index = round_down(ractl._index, nrpages);
+	}
+	if (order)
+		pr_info("do_sync_mmap_readahead(6)\n");
+	page_cache_ra_order(&ractl, ra, order);
+	if (order)
+		pr_info("do_sync_mmap_readahead(7)\n");
 	return fpin;
 }
 
@@ -3245,8 +3260,11 @@ static struct file *do_async_mmap_readahead(struct vm_fault *vmf,
 					    struct folio *folio)
 {
 	struct file *file = vmf->vma->vm_file;
+	struct address_space *mapping = file->f_mapping;
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 	struct file_ra_state *ra = &file->f_ra;
-	DEFINE_READAHEAD(ractl, file, ra, file->f_mapping, vmf->pgoff);
+	DEFINE_READAHEAD(ractl, file, ra, file->f_mapping, round_down(vmf->pgoff, nrpages));
 	struct file *fpin = NULL;
 	unsigned int mmap_miss;
 
@@ -3514,6 +3532,7 @@ static struct folio *next_uptodate_page(struct folio *folio,
 		if (!folio_test_uptodate(folio))
 			goto unlock;
 		max_idx = DIV_ROUND_UP(i_size_read(mapping->host), PAGE_SIZE);
+		max_idx = round_up(max_idx, nrpages);
 		if (xas->xa_index >= max_idx)
 			goto unlock;
 
