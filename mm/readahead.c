@@ -306,17 +306,21 @@ static void do_page_cache_ra(struct readahead_control *ractl,
 	loff_t isize = i_size_read(inode);
 	pgoff_t end_index;	/* The last page we want to read */
 
-	if (isize == 0)
+	if (isize == 0 || nr_to_read == 0)
 		return;
 
 	WARN_ON_ONCE(index & (nrpages - 1));
 
-	end_index = (isize - 1) >> PAGE_SHIFT;
-	if (index > end_index)
+	/* end_index is exclusive of the read */
+	end_index = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
+	end_index = round_up(end_index, nrpages);
+	if (index >= end_index)
 		return;
 	/* Don't read past the page containing the last byte of the file */
-	if (nr_to_read > end_index - index)
-		nr_to_read = end_index - index + 1;
+	if (index + nr_to_read >= end_index)
+		nr_to_read = end_index - 1 - index;
+	if (nr_to_read == 0)
+		return;
 
 	page_cache_ra_unbounded(ractl, nr_to_read, lookahead_size);
 }
