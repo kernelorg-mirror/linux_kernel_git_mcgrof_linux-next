@@ -299,12 +299,17 @@ static void do_page_cache_ra(struct readahead_control *ractl,
 		unsigned long nr_to_read, unsigned long lookahead_size)
 {
 	struct inode *inode = ractl->mapping->host;
+	struct address_space *mapping = ractl->mapping;
+	unsigned int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 	unsigned long index = readahead_index(ractl);
 	loff_t isize = i_size_read(inode);
 	pgoff_t end_index;	/* The last page we want to read */
 
 	if (isize == 0)
 		return;
+
+	WARN_ON_ONCE(index & (nrpages - 1));
 
 	end_index = (isize - 1) >> PAGE_SHIFT;
 	if (index > end_index)
