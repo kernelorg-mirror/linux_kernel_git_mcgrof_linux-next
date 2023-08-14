@@ -3314,21 +3314,17 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 	struct file *file = vmf->vma->vm_file;
 	struct file *fpin = NULL;
 	struct address_space *mapping = file->f_mapping;
+	int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1U << order;
 	struct inode *inode = mapping->host;
-	pgoff_t max_idx, index = vmf->pgoff;
-	pgoff_t fol_index = vmf->pgoff;
+	pgoff_t max_idx, index = round_down(vmf->pgoff, nrpages);
 	struct folio *folio;
 	vm_fault_t ret = 0;
 	bool mapping_locked = false;
-	int order = mapping_min_folio_order(mapping);
-	unsigned int nrpages = 1U << order;
-
-	if (order > 0)
-		fol_index = round_down(fol_index, nrpages);
 
 	/*
-	 * max_idx is the index of the page beyond the end of the read, not
-	 * inclusive.
+	 * max_idx is the first index of the page beyond the end of the read,
+	 * not inclusive.
 	*/
 	max_idx = DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE);
 	max_idx = round_up(max_idx, nrpages);
@@ -3338,7 +3334,7 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 	/*
 	 * Do we have something in the page cache already?
 	 */
-	folio = filemap_get_folio(mapping, fol_index);
+	folio = filemap_get_folio(mapping, index);
 	if (likely(!IS_ERR(folio))) {
 		/*
 		 * We found the page, so try async readahead before waiting for
@@ -3365,7 +3361,7 @@ retry_find:
 			filemap_invalidate_lock_shared(mapping);
 			mapping_locked = true;
 		}
-		folio = __filemap_get_folio(mapping, fol_index,
+		folio = __filemap_get_folio(mapping, index,
 					  FGP_CREAT|FGP_FOR_MMAP,
 					  vmf->gfp_mask);
 		if (IS_ERR(folio)) {
@@ -3437,7 +3433,7 @@ retry_find:
 		return VM_FAULT_SIGBUS;
 	}
 
-	vmf->page = folio_file_page(folio, index);
+	vmf->page = folio_file_page(folio, vmf->pgoff);
 	return ret | VM_FAULT_LOCKED;
 
 page_not_uptodate:
