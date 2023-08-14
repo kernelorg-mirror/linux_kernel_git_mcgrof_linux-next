@@ -3340,6 +3340,8 @@ vm_fault_t filemap_fault(struct vm_fault *vmf)
 		 * We found the page, so try async readahead before waiting for
 		 * the lock.
 		 */
+		if (order == 2)
+			pr_info("filemap_fault(1) folio_nr_pages: %lu\n", folio_nr_pages(folio));
 		if (!(vmf->flags & FAULT_FLAG_TRIED))
 			fpin = do_async_mmap_readahead(vmf, folio);
 		if (unlikely(!folio_test_uptodate(folio))) {
@@ -3383,6 +3385,8 @@ retry_find:
 	}
 	VM_BUG_ON_FOLIO(!folio_contains(folio, index), folio);
 
+	if (order == 2)
+		pr_info("filemap_fault(2) folio_nr_pages: %lu\n", folio_nr_pages(folio));
 	/*
 	 * We have a locked page in the page cache, now we need to check
 	 * that it's up-to-date. If not, it is going to be due to an error.
@@ -3426,12 +3430,19 @@ retry_find:
 		return VM_FAULT_SIGBUS;
 	}
 
+	/* XXX: the below captures a order 0 folio, when our min order
+	 * folio is set, fix this.
+	 */
+#if 0
 	if (unlikely(folio_nr_pages(folio) < nrpages)) {
 		pr_warn_once("filemap_fault(): min nrpages: %u got: %lu\n", nrpages, folio_nr_pages(folio));
+		//WARN_ON_ONCE(1);
 		folio_unlock(folio);
 		folio_put(folio);
-		return VM_FAULT_SIGBUS;
+		//return VM_FAULT_SIGBUS;
+		return VM_FAULT_NOPAGE;
 	}
+#endif
 
 	vmf->page = folio_file_page(folio, vmf->pgoff);
 	return ret | VM_FAULT_LOCKED;
