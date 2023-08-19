@@ -141,16 +141,18 @@ void __delete_from_swap_cache(struct folio *folio,
 			swp_entry_t entry, void *shadow)
 {
 	struct address_space *address_space = swap_address_space(entry);
+	unsigned int order = mapping_min_folio_order(address_space);
 	int i;
 	long nr = folio_nr_pages(folio);
 	pgoff_t idx = swp_offset(entry);
-	XA_STATE(xas, &address_space->i_pages, idx);
+	XA_STATE_ORDER(xas, &address_space->i_pages, idx, folio_order(folio));
 
 	xas_set_update(&xas, workingset_update_node);
 
 	VM_BUG_ON_FOLIO(!folio_test_locked(folio), folio);
 	VM_BUG_ON_FOLIO(!folio_test_swapcache(folio), folio);
 	VM_BUG_ON_FOLIO(folio_test_writeback(folio), folio);
+	VM_BUG_ON_FOLIO(folio_order(folio) < order, folio);
 
 	for (i = 0; i < nr; i++) {
 		void *entry = xas_store(&xas, shadow);
@@ -253,7 +255,8 @@ void clear_shadow_from_swap_cache(int type, unsigned long begin,
 	for (;;) {
 		swp_entry_t entry = swp_entry(type, curr);
 		struct address_space *address_space = swap_address_space(entry);
-		XA_STATE(xas, &address_space->i_pages, curr);
+		unsigned int order = mapping_min_folio_order(address_space);
+		XA_STATE_ORDER(xas, &address_space->i_pages, curr, order);
 
 		xas_set_update(&xas, workingset_update_node);
 

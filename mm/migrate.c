@@ -397,11 +397,15 @@ static int folio_expected_refs(struct address_space *mapping,
 int folio_migrate_mapping(struct address_space *mapping,
 		struct folio *newfolio, struct folio *folio, int extra_count)
 {
-	XA_STATE(xas, &mapping->i_pages, folio_index(folio));
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, folio_index(folio), folio_order(folio));
 	struct zone *oldzone, *newzone;
 	int dirty;
 	int expected_count = folio_expected_refs(mapping, folio) + extra_count;
 	long nr = folio_nr_pages(folio);
+
+	VM_BUG_ON_FOLIO(folio_order(folio) < order, folio);
+	VM_BUG_ON_FOLIO(folio_order(folio) != folio_order(newfolio), folio);
 
 	if (!mapping) {
 		/* Anonymous page without mapping */

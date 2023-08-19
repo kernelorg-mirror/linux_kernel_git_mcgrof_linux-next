@@ -2341,7 +2341,8 @@ void __init page_writeback_init(void)
 void tag_pages_for_writeback(struct address_space *mapping,
 			     pgoff_t start, pgoff_t end)
 {
-	XA_STATE(xas, &mapping->i_pages, start);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, start, order);
 	unsigned int tagged = 0;
 	void *page;
 
@@ -2994,7 +2995,8 @@ bool __folio_start_writeback(struct folio *folio, bool keep_write)
 
 	folio_memcg_lock(folio);
 	if (mapping && mapping_use_writeback_tags(mapping)) {
-		XA_STATE(xas, &mapping->i_pages, folio_index(folio));
+		unsigned int order = mapping_min_folio_order(mapping);
+		XA_STATE_ORDER(xas, &mapping->i_pages, folio_index(folio), order);
 		struct inode *inode = mapping->host;
 		struct backing_dev_info *bdi = inode_to_bdi(inode);
 		unsigned long flags;

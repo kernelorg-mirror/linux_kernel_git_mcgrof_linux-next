@@ -129,8 +129,11 @@
 static void page_cache_delete(struct address_space *mapping,
 				   struct folio *folio, void *shadow)
 {
-	XA_STATE(xas, &mapping->i_pages, folio->index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, folio->index, folio_order(folio));
 	long nr = 1;
+
+	VM_BUG_ON_FOLIO(folio_order(folio) < order, folio);
 
 	mapping_set_update(&xas, mapping);
 
@@ -282,7 +285,8 @@ void filemap_remove_folio(struct folio *folio)
 static void page_cache_delete_batch(struct address_space *mapping,
 			     struct folio_batch *fbatch)
 {
-	XA_STATE(xas, &mapping->i_pages, fbatch->folios[0]->index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, fbatch->folios[0]->index, order);
 	long total_pages = 0;
 	int i = 0;
 	struct folio *folio;
@@ -476,7 +480,8 @@ bool filemap_range_has_page(struct address_space *mapping,
 			   loff_t start_byte, loff_t end_byte)
 {
 	struct folio *folio;
-	XA_STATE(xas, &mapping->i_pages, start_byte >> PAGE_SHIFT);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, start_byte >> PAGE_SHIFT, order);
 	pgoff_t max = end_byte >> PAGE_SHIFT;
 
 	if (end_byte < start_byte)
@@ -634,7 +639,8 @@ static bool mapping_needs_writeback(struct address_space *mapping)
 bool filemap_range_has_writeback(struct address_space *mapping,
 				 loff_t start_byte, loff_t end_byte)
 {
-	XA_STATE(xas, &mapping->i_pages, start_byte >> PAGE_SHIFT);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, start_byte >> PAGE_SHIFT, order);
 	pgoff_t max = end_byte >> PAGE_SHIFT;
 	struct folio *folio;
 
@@ -810,12 +816,15 @@ EXPORT_SYMBOL(file_write_and_wait_range);
 void replace_page_cache_folio(struct folio *old, struct folio *new)
 {
 	struct address_space *mapping = old->mapping;
+	unsigned int order = mapping_min_folio_order(mapping);
 	void (*free_folio)(struct folio *) = mapping->a_ops->free_folio;
 	pgoff_t offset = old->index;
-	XA_STATE(xas, &mapping->i_pages, offset);
+	XA_STATE_ORDER(xas, &mapping->i_pages, offset, folio_order(old));
 
 	VM_BUG_ON_FOLIO(!folio_test_locked(old), old);
 	VM_BUG_ON_FOLIO(!folio_test_locked(new), new);
+	VM_BUG_ON_FOLIO(folio_order(old) < order, new);
+	VM_BUG_ON_FOLIO(folio_order(old) != folio_order(new), new);
 	VM_BUG_ON_FOLIO(new->mapping, new);
 
 	folio_get(new);
@@ -847,17 +856,21 @@ EXPORT_SYMBOL_GPL(replace_page_cache_folio);
 noinline int __filemap_add_folio(struct address_space *mapping,
 		struct folio *folio, pgoff_t index, gfp_t gfp, void **shadowp)
 {
-	XA_STATE(xas, &mapping->i_pages, index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, index, folio_order(folio));
 	int huge = folio_test_hugetlb(folio);
 	bool charged = false;
 	long nr = 1;
 
+	VM_BUG_ON_FOLIO(folio_order(folio) < order, folio);
 	VM_BUG_ON_FOLIO(!folio_test_locked(folio), folio);
 	VM_BUG_ON_FOLIO(folio_test_swapbacked(folio), folio);
+	VM_BUG_ON_FOLIO(index & ((1UL << mapping_min_folio_order(mapping)) - 1), folio);
 	mapping_set_update(&xas, mapping);
 
 	if (!huge) {
 		int error = mem_cgroup_charge(folio, NULL, gfp);
+		VM_BUG_ON_FOLIO(folio_order(folio) < order, folio);
 		VM_BUG_ON_FOLIO(index & (folio_nr_pages(folio) - 1), folio);
 		if (error)
 			return error;
@@ -1734,7 +1747,8 @@ vm_fault_t __folio_lock_or_retry(struct folio *folio, struct vm_fault *vmf)
 pgoff_t page_cache_next_miss(struct address_space *mapping,
 			     pgoff_t index, unsigned long max_scan)
 {
-	XA_STATE(xas, &mapping->i_pages, index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, index, order);
 
 	while (max_scan--) {
 		void *entry = xas_next(&xas);
@@ -1770,7 +1784,8 @@ EXPORT_SYMBOL(page_cache_next_miss);
 pgoff_t page_cache_prev_miss(struct address_space *mapping,
 			     pgoff_t index, unsigned long max_scan)
 {
-	XA_STATE(xas, &mapping->i_pages, index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, index, order);
 
 	while (max_scan--) {
 		void *entry = xas_prev(&xas);
@@ -1818,7 +1833,8 @@ EXPORT_SYMBOL(page_cache_prev_miss);
  */
 void *filemap_get_entry(struct address_space *mapping, pgoff_t index)
 {
-	XA_STATE(xas, &mapping->i_pages, index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, index, order);
 	struct folio *folio;
 
 	rcu_read_lock();
@@ -2026,7 +2042,8 @@ reset:
 unsigned find_get_entries(struct address_space *mapping, pgoff_t *start,
 		pgoff_t end, struct folio_batch *fbatch, pgoff_t *indices)
 {
-	XA_STATE(xas, &mapping->i_pages, *start);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, *start, order);
 	struct folio *folio;
 
 	rcu_read_lock();
@@ -2072,7 +2089,8 @@ unsigned find_get_entries(struct address_space *mapping, pgoff_t *start,
 unsigned find_lock_entries(struct address_space *mapping, pgoff_t *start,
 		pgoff_t end, struct folio_batch *fbatch, pgoff_t *indices)
 {
-	XA_STATE(xas, &mapping->i_pages, *start);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, *start, order);
 	struct folio *folio;
 
 	rcu_read_lock();
@@ -2137,7 +2155,8 @@ put:
 unsigned filemap_get_folios(struct address_space *mapping, pgoff_t *start,
 		pgoff_t end, struct folio_batch *fbatch)
 {
-	XA_STATE(xas, &mapping->i_pages, *start);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, *start, order);
 	struct folio *folio;
 
 	rcu_read_lock();
@@ -2200,7 +2219,8 @@ bool folio_more_pages(struct folio *folio, pgoff_t index, pgoff_t max)
 unsigned filemap_get_folios_contig(struct address_space *mapping,
 		pgoff_t *start, pgoff_t end, struct folio_batch *fbatch)
 {
-	XA_STATE(xas, &mapping->i_pages, *start);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, *start, order);
 	unsigned long nr;
 	struct folio *folio;
 
@@ -2271,7 +2291,8 @@ EXPORT_SYMBOL(filemap_get_folios_contig);
 unsigned filemap_get_folios_tag(struct address_space *mapping, pgoff_t *start,
 			pgoff_t end, xa_mark_t tag, struct folio_batch *fbatch)
 {
-	XA_STATE(xas, &mapping->i_pages, *start);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, *start, order);
 	struct folio *folio;
 
 	rcu_read_lock();
@@ -2341,13 +2362,9 @@ static void shrink_readahead_size_eio(struct file_ra_state *ra)
 static void filemap_get_read_batch(struct address_space *mapping,
 		pgoff_t index, pgoff_t max, struct folio_batch *fbatch)
 {
-	XA_STATE(xas, &mapping->i_pages, index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, index, order);
 	struct folio *folio;
-	int order = mapping_min_folio_order(mapping);
-	unsigned int nrpages = 1U << order;
-
-	if (order > 0)
-		max = round_up(max, nrpages);
 
 	rcu_read_lock();
 	for (folio = xas_load(&xas); folio; folio = xas_next(&xas)) {
@@ -3071,7 +3088,9 @@ static inline size_t seek_folio_size(struct xa_state *xas, struct folio *folio)
 loff_t mapping_seek_hole_data(struct address_space *mapping, loff_t start,
 		loff_t end, int whence)
 {
-	XA_STATE(xas, &mapping->i_pages, start >> PAGE_SHIFT);
+	unsigned int order = mapping_min_folio_order(mapping);
+	unsigned int nrpages = 1UL << order;
+	XA_STATE_ORDER(xas, &mapping->i_pages, round_down(start >> PAGE_SHIFT, nrpages), order);
 	pgoff_t max = (end - 1) >> PAGE_SHIFT;
 	bool seek_data = (whence == SEEK_DATA);
 	struct folio *folio;
@@ -3582,9 +3601,10 @@ vm_fault_t filemap_map_pages(struct vm_fault *vmf,
 	struct vm_area_struct *vma = vmf->vma;
 	struct file *file = vma->vm_file;
 	struct address_space *mapping = file->f_mapping;
+	unsigned int order = mapping_min_folio_order(mapping);
 	pgoff_t last_pgoff = start_pgoff;
 	unsigned long addr;
-	XA_STATE(xas, &mapping->i_pages, start_pgoff);
+	XA_STATE_ORDER(xas, &mapping->i_pages, start_pgoff, order);
 	struct folio *folio;
 	struct page *page;
 	unsigned int mmap_miss = READ_ONCE(file->f_ra.mmap_miss);
@@ -4185,7 +4205,8 @@ EXPORT_SYMBOL(filemap_release_folio);
 static void filemap_cachestat(struct address_space *mapping,
 		pgoff_t first_index, pgoff_t last_index, struct cachestat *cs)
 {
-	XA_STATE(xas, &mapping->i_pages, first_index);
+	unsigned int order = mapping_min_folio_order(mapping);
+	XA_STATE_ORDER(xas, &mapping->i_pages, first_index, order);
 	struct folio *folio;
 
 	rcu_read_lock();

@@ -2630,7 +2630,8 @@ int split_huge_page_to_list(struct page *page, struct list_head *list)
 {
 	struct folio *folio = page_folio(page);
 	struct deferred_split *ds_queue = get_deferred_split_queue(folio);
-	XA_STATE(xas, &folio->mapping->i_pages, folio->index);
+	unsigned int order = mapping_min_folio_order(folio->mapping);
+	XA_STATE_ORDER(xas, &folio->mapping->i_pages, folio->index, order);
 	struct anon_vma *anon_vma = NULL;
 	struct address_space *mapping = NULL;
 	int extra_pins, ret;
