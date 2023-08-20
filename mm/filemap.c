@@ -3287,8 +3287,6 @@ static struct file *do_async_mmap_readahead(struct vm_fault *vmf,
 	struct file *fpin = NULL;
 	unsigned int mmap_miss;
 
-	WARN_ON_ONCE(round_down(vmf->pgoff, nrpages) != folio->index);
-
 	/* If we don't want any read-ahead, don't bother */
 	if (vmf->vma->vm_flags & VM_RAND_READ || !ra->ra_pages)
 		return fpin;
@@ -3299,6 +3297,13 @@ static struct file *do_async_mmap_readahead(struct vm_fault *vmf,
 
 	if (folio_test_readahead(folio)) {
 		fpin = maybe_unlock_mmap_for_io(vmf, fpin);
+		/* Did it get truncated? */
+		if (mapping != folio->mapping) {
+			fput(fpin);
+			return NULL;
+		}
+		VM_BUG_ON_FOLIO(folio_order(folio) < order, folio);
+		WARN_ON_ONCE(round_down(vmf->pgoff, nrpages) != folio->index);
 		page_cache_async_ra(&ractl, folio, ra->ra_pages);
 	}
 	return fpin;
