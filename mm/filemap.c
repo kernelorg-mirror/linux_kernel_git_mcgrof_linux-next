@@ -1862,6 +1862,9 @@ struct folio *__filemap_get_folio(struct address_space *mapping, pgoff_t index,
 		fgf_t fgp_flags, gfp_t gfp)
 {
 	struct folio *folio;
+	int min_order = mapping_min_folio_order(mapping);
+	int nr_of_pages = (1U << min_order);
+	index = round_down(index, nr_of_pages);
 
 repeat:
 	folio = filemap_get_entry(mapping, index);
@@ -1931,6 +1934,17 @@ no_page:
 				order = 0;
 			if (order > 0)
 				alloc_gfp |= __GFP_NORETRY | __GFP_NOWARN;
+
+			/*
+			 * Ensure alignment to the high order folio, this
+			 * in turn ensures alignment to the min order.
+			 */
+			while ((index & ((1UL << order) - 1)) != 0)
+				order--;
+
+			if (order < min_order)
+				order = min_order;
+
 			folio = filemap_alloc_folio(alloc_gfp, order);
 			if (!folio)
 				continue;
@@ -1944,7 +1958,7 @@ no_page:
 				break;
 			folio_put(folio);
 			folio = NULL;
-		} while (order-- > 0);
+		} while (order-- > min_order);
 
 		if (err == -EEXIST)
 			goto repeat;
