@@ -539,7 +539,6 @@ void page_cache_ra_order(struct readahead_control *ractl,
 		goto fallback;
 
 	limit = min(limit, index + ra->size - 1);
-	limit = round_up(limit, min_nrpages) - 1;
 
 	if (new_order < MAX_PAGECACHE_ORDER) {
 		new_order += 2;
