@@ -2570,20 +2570,23 @@ static int filemap_get_pages(struct kiocb *iocb, size_t count,
 	struct folio *folio;
 	int err = 0;
 
-	/* "last_index" is the index of the page beyond the end of the read */
+	/*
+	 * "last_index" is the index of the page beyond the end of the read.
+	 * It is exclusive so it should be the first exclusive index.
+	 */
 	last_index = DIV_ROUND_UP(iocb->ki_pos + count, PAGE_SIZE);
 	last_index = round_up(last_index, nrpages);
 retry:
 	if (fatal_signal_pending(current))
 		return -EINTR;
 
-	filemap_get_read_batch(mapping, index, last_index - nrpages, fbatch);
+	filemap_get_read_batch(mapping, index, last_index, fbatch);
 	if (!folio_batch_count(fbatch)) {
 		if (iocb->ki_flags & IOCB_NOIO)
 			return -EAGAIN;
 		page_cache_sync_readahead(mapping, ra, filp, index,
 				last_index - index);
-		filemap_get_read_batch(mapping, index, last_index - nrpages, fbatch);
+		filemap_get_read_batch(mapping, index, last_index, fbatch);
 	}
 	if (!folio_batch_count(fbatch)) {
 		if (iocb->ki_flags & (IOCB_NOWAIT | IOCB_WAITQ))
