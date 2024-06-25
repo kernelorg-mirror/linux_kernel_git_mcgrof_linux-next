@@ -11,6 +11,7 @@
 #include <linux/iomap.h>
 #include <linux/backing-dev.h>
 #include <linux/uio.h>
+#include <linux/set_memory.h>
 #include <linux/task_io_accounting_ops.h>
 #include "trace.h"
 
@@ -26,6 +27,13 @@
 #define IOMAP_DIO_NEED_SYNC	(1U << 29)
 #define IOMAP_DIO_WRITE		(1U << 30)
 #define IOMAP_DIO_DIRTY		(1U << 31)
+
+/*
+ * Used for sub block zeroing in iomap_dio_zero()
+ */
+#define ZERO_PAGE_64K_SIZE (65536)
+#define ZERO_PAGE_64K_ORDER (get_order(ZERO_PAGE_64K_SIZE))
+static struct page *zero_page_64k;
 
 struct iomap_dio {
 	struct kiocb		*iocb;
@@ -236,8 +244,12 @@ static void iomap_dio_zero(const struct iomap_iter *iter, struct iomap_dio *dio,
 		loff_t pos, unsigned len)
 {
 	struct inode *inode = file_inode(dio->iocb->ki_filp);
-	struct page *page = ZERO_PAGE(0);
 	struct bio *bio;
+
+	/*
+	 * Max block size supported is 64k
+	 */
+	WARN_ON_ONCE(len > ZERO_PAGE_64K_SIZE);
 
 	bio = iomap_dio_alloc_bio(iter, dio, 1, REQ_OP_WRITE | REQ_SYNC | REQ_IDLE);
 	fscrypt_set_bio_crypt_ctx(bio, inode, pos >> inode->i_blkbits,
@@ -246,7 +258,7 @@ static void iomap_dio_zero(const struct iomap_iter *iter, struct iomap_dio *dio,
 	bio->bi_private = dio;
 	bio->bi_end_io = iomap_dio_bio_end_io;
 
-	__bio_add_page(bio, page, len, 0);
+	__bio_add_page(bio, zero_page_64k, len, 0);
 	iomap_dio_submit_bio(iter, dio, bio, pos);
 }
 
@@ -753,3 +765,17 @@ iomap_dio_rw(struct kiocb *iocb, struct iov_iter *iter,
 	return iomap_dio_complete(dio);
 }
 EXPORT_SYMBOL_GPL(iomap_dio_rw);
+
+static int __init iomap_dio_init(void)
+{
+	zero_page_64k = alloc_pages(GFP_KERNEL | __GFP_ZERO,
+				    ZERO_PAGE_64K_ORDER);
+
+	if (!zero_page_64k)
+		return -ENOMEM;
+
+	set_memory_ro((unsigned long)page_address(zero_page_64k),
+		      1U << ZERO_PAGE_64K_ORDER);
+	return 0;
+}
+fs_initcall(iomap_dio_init);
