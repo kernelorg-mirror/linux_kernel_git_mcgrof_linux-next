@@ -1285,7 +1285,7 @@ void bdev_statx(struct path *path, struct kstat *stat,
 
 	if (request_mask & STATX_DIOALIGN) {
 		stat->dio_mem_align = bdev_dma_alignment(bdev) + 1;
-		stat->dio_offset_align = bdev_logical_block_size(bdev);
+		stat->dio_offset_align = (unsigned int) bdev_io_min(bdev);
 		stat->result_mask |= STATX_DIOALIGN;
 	}
 
